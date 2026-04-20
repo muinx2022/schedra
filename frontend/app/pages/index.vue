@@ -263,6 +263,7 @@
         </NuxtLink>
         <nav class="hp-footer-links">
           <NuxtLink to="/chinh-sach-rieng-tu">Chính sách quyền riêng tư</NuxtLink>
+          <NuxtLink to="/quy-dinh-su-dung">Quy định sử dụng</NuxtLink>
           <NuxtLink to="/register">Bắt đầu miễn phí</NuxtLink>
           <NuxtLink to="/login">Đăng nhập</NuxtLink>
         </nav>
