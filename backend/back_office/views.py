@@ -21,8 +21,14 @@ from django.utils.text import capfirst
 from django.views import View
 from django.views.generic import FormView, TemplateView
 
-from .forms import MediaUploadSettingsForm, SocialProviderSettingsForm
-from .models import MediaUploadSettings, SocialProviderSettings
+from .forms import AppMailSettingsForm, AuthEmailTemplateForm, MediaUploadSettingsForm, SocialProviderSettingsForm
+from .models import (
+    AUTH_EMAIL_TEMPLATE_DEFAULTS,
+    AppMailSettings,
+    AuthEmailTemplate,
+    MediaUploadSettings,
+    SocialProviderSettings,
+)
 
 
 @dataclass(frozen=True)
@@ -331,7 +337,7 @@ class BackOfficeSettingsView(StaffRequiredMixin, TemplateView):
     """Admin settings hub for media storage and social provider credentials."""
 
     template_name = "back_office/settings.html"
-    valid_tabs = {"media", "providers", "more"}
+    valid_tabs = {"media", "providers", "auth", "more"}
 
     def get_media_form(self, data=None) -> MediaUploadSettingsForm:
         return MediaUploadSettingsForm(data=data, instance=MediaUploadSettings.load())
@@ -339,12 +345,27 @@ class BackOfficeSettingsView(StaffRequiredMixin, TemplateView):
     def get_provider_form(self, data=None) -> SocialProviderSettingsForm:
         return SocialProviderSettingsForm(data=data, instance=SocialProviderSettings.load())
 
+    def get_mail_form(self, data=None) -> AppMailSettingsForm:
+        return AppMailSettingsForm(data=data, instance=AppMailSettings.load(), prefix="mail")
+
+    def get_auth_template_forms(self, data=None) -> dict[str, AuthEmailTemplateForm]:
+        forms: dict[str, AuthEmailTemplateForm] = {}
+        for key in AUTH_EMAIL_TEMPLATE_DEFAULTS:
+            forms[key] = AuthEmailTemplateForm(
+                data=data,
+                instance=AuthEmailTemplate.load(key),
+                prefix=key,
+            )
+        return forms
+
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         section = request.POST.get("settings_section", "media")
 
         if section == "providers":
             media_form = self.get_media_form()
             provider_form = self.get_provider_form(data=request.POST)
+            mail_form = self.get_mail_form()
+            auth_template_forms = self.get_auth_template_forms()
             if provider_form.is_valid():
                 provider_form.save()
                 messages.success(request, "Provider settings saved.")
@@ -352,11 +373,34 @@ class BackOfficeSettingsView(StaffRequiredMixin, TemplateView):
             return self.render_to_response(self.get_context_data(
                 form=media_form,
                 provider_form=provider_form,
+                mail_form=mail_form,
+                auth_template_forms=auth_template_forms,
                 active_settings_tab="providers",
+            ))
+
+        if section == "auth":
+            media_form = self.get_media_form()
+            provider_form = self.get_provider_form()
+            mail_form = self.get_mail_form(data=request.POST)
+            auth_template_forms = self.get_auth_template_forms(data=request.POST)
+            if mail_form.is_valid() and all(form.is_valid() for form in auth_template_forms.values()):
+                mail_form.save()
+                for form in auth_template_forms.values():
+                    form.save()
+                messages.success(request, "Auth mail settings saved.")
+                return redirect(f"{reverse('back_office:settings')}?tab=auth#tab-auth")
+            return self.render_to_response(self.get_context_data(
+                form=media_form,
+                provider_form=provider_form,
+                mail_form=mail_form,
+                auth_template_forms=auth_template_forms,
+                active_settings_tab="auth",
             ))
 
         media_form = self.get_media_form(data=request.POST)
         provider_form = self.get_provider_form()
+        mail_form = self.get_mail_form()
+        auth_template_forms = self.get_auth_template_forms()
         if media_form.is_valid():
             media_form.save()
             messages.success(request, "Media settings saved.")
@@ -364,6 +408,8 @@ class BackOfficeSettingsView(StaffRequiredMixin, TemplateView):
         return self.render_to_response(self.get_context_data(
             form=media_form,
             provider_form=provider_form,
+            mail_form=mail_form,
+            auth_template_forms=auth_template_forms,
             active_settings_tab="media",
         ))
 
@@ -371,6 +417,15 @@ class BackOfficeSettingsView(StaffRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         ctx.setdefault("form", self.get_media_form())
         ctx.setdefault("provider_form", self.get_provider_form())
+        ctx.setdefault("mail_form", self.get_mail_form())
+        ctx.setdefault("auth_template_forms", self.get_auth_template_forms())
+        ctx.setdefault(
+            "auth_template_help",
+            {
+                "welcome": AUTH_EMAIL_TEMPLATE_DEFAULTS["welcome"]["description"],
+                "password_reset": AUTH_EMAIL_TEMPLATE_DEFAULTS["password_reset"]["description"],
+            },
+        )
         requested_tab = (self.request.GET.get("tab") or "").strip().lower()
         ctx.setdefault(
             "active_settings_tab",

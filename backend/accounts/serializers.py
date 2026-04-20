@@ -1,6 +1,10 @@
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.utils.text import slugify
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from .models import Workspace
 
@@ -55,8 +59,46 @@ class RegisterSerializer(serializers.Serializer):
         Workspace.objects.create(owner=user, name=workspace_name, slug=slug)
         return user
 
+    def validate_email(self, value: str) -> str:
+        email = value.lower().strip()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return email
+
+    def validate_password(self, value: str) -> str:
+        validate_password(value)
+        return value
+
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value: str) -> str:
+        return value.lower().strip()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        uid = attrs["uid"]
+        token = attrs["token"]
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise ValidationError({"detail": "Invalid or expired reset link."})
+
+        attrs["user"] = user
+        return attrs
+
+    def validate_password(self, value: str) -> str:
+        validate_password(value)
+        return value

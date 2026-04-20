@@ -106,3 +106,138 @@ class SocialProviderSettings(models.Model):
     def load(cls) -> "SocialProviderSettings":
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class AppMailSettings(models.Model):
+    """Singleton (pk=1): app-level mail delivery and auth URL settings."""
+
+    site_name = models.CharField(max_length=120, blank=True, default="Social Man")
+    from_name = models.CharField(max_length=120, blank=True)
+    from_email = models.EmailField(blank=True)
+    reply_to_email = models.EmailField(blank=True)
+    frontend_base_url = models.URLField(blank=True, help_text="Public app URL, e.g. https://socialman.com")
+    password_reset_path = models.CharField(max_length=160, default="/reset-password")
+    send_welcome_email = models.BooleanField(default=True)
+    send_password_reset_email = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "App mail settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls) -> "AppMailSettings":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+AUTH_EMAIL_TEMPLATE_DEFAULTS = {
+    "welcome": {
+        "name": "Welcome email",
+        "description": (
+            "Sent right after a new workspace owner registers. "
+            "Available variables: {{ site_name }}, {{ first_name }}, {{ full_name }}, "
+            "{{ email }}, {{ workspace_name }}, {{ login_url }}."
+        ),
+        "subject": "Welcome to {{ site_name }}, {{ first_name|default:full_name }}",
+        "text_body": (
+            "Hi {{ first_name|default:full_name }},\n\n"
+            "Your workspace {{ workspace_name }} is ready.\n"
+            "You can sign in here: {{ login_url }}\n\n"
+            "If you did not create this account, you can ignore this email.\n\n"
+            "{{ site_name }}"
+        ),
+        "html_body": (
+            "<p>Hi {{ first_name|default:full_name }},</p>"
+            "<p>Your workspace <strong>{{ workspace_name }}</strong> is ready.</p>"
+            "<p><a href=\"{{ login_url }}\">Sign in to {{ site_name }}</a></p>"
+            "<p>If you did not create this account, you can ignore this email.</p>"
+            "<p>{{ site_name }}</p>"
+        ),
+    },
+    "password_reset": {
+        "name": "Password reset email",
+        "description": (
+            "Sent when a user requests a password reset. "
+            "Available variables: {{ site_name }}, {{ first_name }}, {{ full_name }}, "
+            "{{ email }}, {{ reset_url }}, {{ expires_in_minutes }}."
+        ),
+        "subject": "Reset your {{ site_name }} password",
+        "text_body": (
+            "Hi {{ first_name|default:full_name }},\n\n"
+            "We received a request to reset the password for {{ email }}.\n"
+            "Use this link to choose a new password:\n"
+            "{{ reset_url }}\n\n"
+            "This link expires in {{ expires_in_minutes }} minutes.\n"
+            "If you did not request a password reset, you can ignore this email.\n\n"
+            "{{ site_name }}"
+        ),
+        "html_body": (
+            "<p>Hi {{ first_name|default:full_name }},</p>"
+            "<p>We received a request to reset the password for <strong>{{ email }}</strong>.</p>"
+            "<p><a href=\"{{ reset_url }}\">Choose a new password</a></p>"
+            "<p>This link expires in {{ expires_in_minutes }} minutes.</p>"
+            "<p>If you did not request a password reset, you can ignore this email.</p>"
+            "<p>{{ site_name }}</p>"
+        ),
+    },
+}
+
+
+class AuthEmailTemplate(models.Model):
+    class TemplateKey(models.TextChoices):
+        WELCOME = "welcome", "Welcome email"
+        PASSWORD_RESET = "password_reset", "Password reset email"
+
+    key = models.CharField(max_length=64, choices=TemplateKey.choices, unique=True)
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    subject = models.CharField(max_length=255)
+    text_body = models.TextField(blank=True)
+    html_body = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Auth email template"
+        verbose_name_plural = "Auth email templates"
+        ordering = ["key"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @classmethod
+    def load(cls, key: str) -> "AuthEmailTemplate":
+        defaults = AUTH_EMAIL_TEMPLATE_DEFAULTS[key]
+        obj, created = cls.objects.get_or_create(key=key, defaults=defaults)
+        if created:
+            return obj
+
+        changed = False
+        if not obj.name:
+            obj.name = defaults["name"]
+            changed = True
+        if not obj.description:
+            obj.description = defaults["description"]
+            changed = True
+        if not obj.subject:
+            obj.subject = defaults["subject"]
+            changed = True
+        if not obj.text_body:
+            obj.text_body = defaults["text_body"]
+            changed = True
+        if not obj.html_body:
+            obj.html_body = defaults["html_body"]
+            changed = True
+        if changed:
+            obj.save(update_fields=["name", "description", "subject", "text_body", "html_body", "updated_at"])
+        return obj
+
+    @classmethod
+    def ensure_defaults(cls) -> list["AuthEmailTemplate"]:
+        return [cls.load(key) for key in AUTH_EMAIL_TEMPLATE_DEFAULTS]

@@ -1,4 +1,5 @@
 {% extends "back_office/base.html" %}
+{% load back_office_extras %}
 
 {% block title %}Settings · Back Office{% endblock %}
 
@@ -32,6 +33,20 @@
         aria-selected="{% if active_settings_tab == 'providers' %}true{% else %}false{% endif %}"
       >
         <i class="bi bi-diagram-3 me-1"></i> Providers
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link {% if active_settings_tab == 'auth' %}active{% endif %}"
+        id="tab-auth-btn"
+        data-bs-toggle="tab"
+        data-bs-target="#tab-auth"
+        type="button"
+        role="tab"
+        aria-controls="tab-auth"
+        aria-selected="{% if active_settings_tab == 'auth' %}true{% else %}false{% endif %}"
+      >
+        <i class="bi bi-envelope-paper me-1"></i> Auth &amp; Mail
       </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -384,6 +399,114 @@
       </div>
     </div>
 
+    <div class="tab-pane fade {% if active_settings_tab == 'auth' %}show active{% endif %}" id="tab-auth" role="tabpanel" aria-labelledby="tab-auth-btn" tabindex="0">
+      <div class="card bo-card">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Auth mail</h2>
+          <p class="text-muted small mb-4">
+            Configure registration and password reset email delivery here. Templates support Django template variables and are rendered per user.
+          </p>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="settings_section" value="auth">
+
+            {% if mail_form.non_field_errors %}
+              <div class="alert alert-danger">{{ mail_form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+              <div class="fw-semibold mb-3"><i class="bi bi-send me-1"></i> Delivery</div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.site_name.id_for_label }}">{{ mail_form.site_name.label }}</label>
+                  {{ mail_form.site_name }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.frontend_base_url.id_for_label }}">{{ mail_form.frontend_base_url.label }}</label>
+                  {{ mail_form.frontend_base_url }}
+                  <div class="form-text">Used to build login and password reset links.</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.from_name.id_for_label }}">{{ mail_form.from_name.label }}</label>
+                  {{ mail_form.from_name }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.from_email.id_for_label }}">{{ mail_form.from_email.label }}</label>
+                  {{ mail_form.from_email }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.reply_to_email.id_for_label }}">{{ mail_form.reply_to_email.label }}</label>
+                  {{ mail_form.reply_to_email }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="{{ mail_form.password_reset_path.id_for_label }}">{{ mail_form.password_reset_path.label }}</label>
+                  {{ mail_form.password_reset_path }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="form-check mt-2">
+                    {{ mail_form.send_welcome_email }}
+                    <label class="form-check-label" for="{{ mail_form.send_welcome_email.id_for_label }}">
+                      Send welcome email after registration
+                    </label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="form-check mt-2">
+                    {{ mail_form.send_password_reset_email }}
+                    <label class="form-check-label" for="{{ mail_form.send_password_reset_email.id_for_label }}">
+                      Send password reset email
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% for key, template_form in auth_template_forms.items %}
+              <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+                <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                  <div>
+                    <div class="fw-semibold">
+                      {% if key == "welcome" %}
+                        <i class="bi bi-person-check me-1"></i> Welcome email
+                      {% else %}
+                        <i class="bi bi-key me-1"></i> Password reset email
+                      {% endif %}
+                    </div>
+                    <div class="text-muted small">{{ auth_template_help|get_item:key }}</div>
+                  </div>
+                  <span class="badge text-bg-light border">{{ key }}</span>
+                </div>
+
+                {% if template_form.non_field_errors %}
+                  <div class="alert alert-danger">{{ template_form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label" for="{{ template_form.subject.id_for_label }}">{{ template_form.subject.label }}</label>
+                    {{ template_form.subject }}
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label" for="{{ template_form.text_body.id_for_label }}">{{ template_form.text_body.label }}</label>
+                    {{ template_form.text_body }}
+                    <div class="form-text">Plain text fallback for inboxes that do not render HTML well.</div>
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label" for="{{ template_form.html_body.id_for_label }}">{{ template_form.html_body.label }}</label>
+                    {{ template_form.html_body }}
+                    <div class="form-text">Supports simple HTML and Django template variables.</div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-dark">Save auth mail settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <div class="tab-pane fade" id="tab-more" role="tabpanel" aria-labelledby="tab-more-btn" tabindex="0">
       <div class="card bo-card">
         <div class="card-body text-muted">
@@ -413,6 +536,7 @@
   <script>
     function settingsTabNameFromHash(hash) {
       if (hash === "#tab-providers") return "providers";
+      if (hash === "#tab-auth") return "auth";
       if (hash === "#tab-more") return "more";
       return "media";
     }
@@ -448,7 +572,7 @@
 
     var params = new URLSearchParams(window.location.search);
     var initialTab = params.get("tab") || settingsTabNameFromHash(window.location.hash);
-    if (["media", "providers", "more"].includes(initialTab)) {
+    if (["media", "providers", "auth", "more"].includes(initialTab)) {
       var trigger = document.getElementById("tab-" + initialTab + "-btn");
       if (trigger && window.bootstrap && window.bootstrap.Tab) {
         window.bootstrap.Tab.getOrCreateInstance(trigger).show();

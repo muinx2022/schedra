@@ -122,7 +122,7 @@
           </ul>
           <p>
             Để thực hiện các quyền trên, vui lòng liên hệ qua email
-            <a href="mailto:privacy@schedra.app">privacy@schedra.app</a>.
+            <a href="mailto:contact@schedra.net">contact@schedra.net</a>.
             Chúng tôi sẽ phản hồi trong vòng 30 ngày.
           </p>
         </section>
@@ -161,7 +161,7 @@
           <p>Nếu bạn có câu hỏi hoặc yêu cầu về quyền riêng tư, vui lòng liên hệ:</p>
           <div class="policy-contact">
             <div><strong>Schedra</strong></div>
-            <div>Email: <a href="mailto:privacy@schedra.app">privacy@schedra.app</a></div>
+            <div>Email: <a href="mailto:contact@schedra.net">contact@schedra.net</a></div>
           </div>
         </section>
 

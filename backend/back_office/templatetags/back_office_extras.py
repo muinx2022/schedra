@@ -12,6 +12,14 @@ def attr(obj, name: str):
 
 
 @register.filter
+def get_item(obj, key: str):
+    try:
+        return obj.get(key, "")
+    except Exception:
+        return ""
+
+
+@register.filter
 def icon_for_app(app_label: str) -> str:
     key = (app_label or "").lower()
     mapping = {

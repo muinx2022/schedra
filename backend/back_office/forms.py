@@ -2,7 +2,7 @@ from django import forms
 
 from common.security import encrypt_value
 
-from .models import MediaUploadSettings, SocialProviderSettings
+from .models import AppMailSettings, AuthEmailTemplate, MediaUploadSettings, SocialProviderSettings
 
 
 class MediaUploadSettingsForm(forms.ModelForm):
@@ -262,4 +262,40 @@ class SocialProviderSettingsForm(forms.ModelForm):
         if commit:
             obj.save()
         return obj
+
+
+class AppMailSettingsForm(forms.ModelForm):
+    class Meta:
+        model = AppMailSettings
+        fields = [
+            "site_name",
+            "from_name",
+            "from_email",
+            "reply_to_email",
+            "frontend_base_url",
+            "password_reset_path",
+            "send_welcome_email",
+            "send_password_reset_email",
+        ]
+        widgets = {
+            "site_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Social Man"}),
+            "from_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Social Man"}),
+            "from_email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "noreply@example.com"}),
+            "reply_to_email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "support@example.com"}),
+            "frontend_base_url": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://socialman.com"}),
+            "password_reset_path": forms.TextInput(attrs={"class": "form-control", "placeholder": "/reset-password"}),
+            "send_welcome_email": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "send_password_reset_email": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
+class AuthEmailTemplateForm(forms.ModelForm):
+    class Meta:
+        model = AuthEmailTemplate
+        fields = ["subject", "text_body", "html_body"]
+        widgets = {
+            "subject": forms.TextInput(attrs={"class": "form-control"}),
+            "text_body": forms.Textarea(attrs={"class": "form-control", "rows": 10, "spellcheck": "false"}),
+            "html_body": forms.Textarea(attrs={"class": "form-control font-monospace", "rows": 12, "spellcheck": "false"}),
+        }
 
