@@ -130,9 +130,9 @@
         <span class="hp-feature-label">Publish</span>
         <h2>Go from draft to live in seconds</h2>
         <p class="muted">
-          Write, preview, and publish to Meta channels directly from
-          your workspace. Schedule for later or hit publish right now
-          — your call.
+          Write, preview, and publish to the connected channels your
+          team actually uses. Schedule for later or hit publish right
+          now from one workspace.
         </p>
         <NuxtLink to="/register" class="hp-link">Start publishing &rarr;</NuxtLink>
       </div>
@@ -170,18 +170,34 @@
 
     <!-- ── CHANNELS ───────────────────────────────────── -->
     <section class="hp-channels">
-      <h2 class="hp-section-title">Built for Meta channels</h2>
+      <h2 class="hp-section-title">Built for multi-channel publishing</h2>
       <p class="hp-section-sub muted">
-        Connect your Facebook Pages and manage everything from one place.
+        Connect Facebook, Instagram, LinkedIn, TikTok, YouTube, and Pinterest from one workspace.
       </p>
       <div class="hp-channel-badges">
         <div class="hp-channel-badge facebook">
           <span class="hp-channel-icon">f</span>
-          Facebook Pages
+          Facebook
         </div>
         <div class="hp-channel-badge instagram">
           <span class="hp-channel-icon">ig</span>
           Instagram
+        </div>
+        <div class="hp-channel-badge linkedin">
+          <span class="hp-channel-icon">in</span>
+          LinkedIn
+        </div>
+        <div class="hp-channel-badge tiktok">
+          <span class="hp-channel-icon">tt</span>
+          TikTok
+        </div>
+        <div class="hp-channel-badge youtube">
+          <span class="hp-channel-icon">yt</span>
+          YouTube
+        </div>
+        <div class="hp-channel-badge pinterest">
+          <span class="hp-channel-icon">p</span>
+          Pinterest
         </div>
       </div>
     </section>
@@ -264,6 +280,7 @@
         <nav class="hp-footer-links">
           <NuxtLink to="/chinh-sach-rieng-tu">Chính sách quyền riêng tư</NuxtLink>
           <NuxtLink to="/quy-dinh-su-dung">Quy định sử dụng</NuxtLink>
+          <NuxtLink to="/tiktok-review">TikTok integration</NuxtLink>
           <NuxtLink to="/register">Bắt đầu miễn phí</NuxtLink>
           <NuxtLink to="/login">Đăng nhập</NuxtLink>
         </nav>
@@ -791,6 +808,22 @@
 
 .hp-channel-badge.instagram .hp-channel-icon {
   background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+}
+
+.hp-channel-badge.linkedin .hp-channel-icon {
+  background: #0a66c2;
+}
+
+.hp-channel-badge.tiktok .hp-channel-icon {
+  background: #111111;
+}
+
+.hp-channel-badge.youtube .hp-channel-icon {
+  background: #ff0000;
+}
+
+.hp-channel-badge.pinterest .hp-channel-icon {
+  background: #e60023;
 }
 
 /* ── TESTIMONIALS ────────────────────────────────────── */

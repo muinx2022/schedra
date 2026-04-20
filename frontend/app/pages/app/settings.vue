@@ -75,6 +75,7 @@ const pendingDisconnectAccount = ref<SocialAccount | null>(null)
 const callbackLock = ref("")
 const providerModalOpen = ref(false)
 const expandedQueueAccountId = ref<string | null>(null)
+const autoConnectProvider = ref<ProviderCode | null>(null)
 const platformFilter = computed(() => (route.query.platform as string) || "all")
 const currentPage = computed(() => Math.max(1, parseInt((route.query.page as string) || "1", 10)))
 const PAGE_SIZE = 20
@@ -171,7 +172,7 @@ const providerOptions = computed<ProviderOption[]>(() => [
   { code: "facebook", label: "Facebook", subtitle: "Page or Group", accent: "#1877f2", icon: "f", available: true },
   { code: "bluesky", label: "Bluesky", subtitle: "Profile", accent: "#1185fe", icon: "b", available: false },
   { code: "youtube", label: "YouTube", subtitle: "Channel", accent: "#ff0000", icon: "▶", available: true },
-  { code: "tiktok", label: "TikTok", subtitle: "Creator Profile", accent: "#111111", icon: "tt", available: false },
+  { code: "tiktok", label: "TikTok", subtitle: "Creator Profile", accent: "#111111", icon: "tt", available: true },
   { code: "mastodon", label: "Mastodon", subtitle: "Profile", accent: "#6364ff", icon: "m", available: false },
   { code: "pinterest", label: "Pinterest", subtitle: "Board", accent: "#e60023", icon: "p", available: true },
 ])
@@ -227,6 +228,28 @@ watch(
       callbackLock.value = lockKey
       await router.replace({ query: {} })
       await handleCallback(resolvedProvider, codeValue)
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [route.query.connect, session.value.hydrated, session.value.authenticated, step.value],
+  async ([connectValue, hydrated, authenticated, currentStep]) => {
+    const validProviders: ProviderCode[] = ["facebook", "instagram", "linkedin", "tiktok", "youtube", "pinterest"]
+    const providerCode = validProviders.includes(connectValue as ProviderCode) ? connectValue as ProviderCode : null
+    if (!providerCode || !hydrated || !authenticated || currentStep !== "idle") return
+    if (autoConnectProvider.value === providerCode) return
+    const option = providerOptions.value.find((item) => item.code === providerCode)
+    if (!option?.available) return
+    autoConnectProvider.value = providerCode
+    const nextQuery = { ...route.query }
+    delete nextQuery.connect
+    await router.replace({ query: nextQuery })
+    try {
+      await startConnect(providerCode)
+    } finally {
+      autoConnectProvider.value = null
     }
   },
   { immediate: true }
