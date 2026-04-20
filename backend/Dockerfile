@@ -11,6 +11,6 @@ RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 
 COPY backend /app/backend
 
-RUN mkdir -p /app/backend/media /app/backend/staticfiles
+RUN mkdir -p /app/backend/.celery /app/backend/media /app/backend/staticfiles
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "config.wsgi:application"]
