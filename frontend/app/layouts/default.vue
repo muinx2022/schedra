@@ -100,7 +100,19 @@ watch(() => route.fullPath, () => {
 <template>
   <div :class="['shell', isApp ? 'shell-app' : 'shell-public']">
     <aside v-if="isApp" class="sidebar">
-      <NuxtLink to="/app" class="brand sidebar-brand">Social Man</NuxtLink>
+      <NuxtLink to="/app" class="brand sidebar-brand">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
+            <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
+            <circle cx="17" cy="7" r="2.2" fill="currentColor"/>
+            <circle cx="17" cy="17" r="2.2" fill="currentColor"/>
+            <line x1="9" y1="11" x2="15" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="9" y1="13" x2="15" y2="16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        Schedra
+      </NuxtLink>
 
       <nav class="sidebar-nav">
         <NuxtLink
@@ -165,7 +177,19 @@ watch(() => route.fullPath, () => {
 
     <template v-if="isApp">
       <div class="mobile-app-bar">
-        <NuxtLink to="/app" class="mobile-brand">Social Man</NuxtLink>
+        <NuxtLink to="/app" class="mobile-brand">
+          <span class="brand-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
+              <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
+              <circle cx="17" cy="7" r="2.2" fill="currentColor"/>
+              <circle cx="17" cy="17" r="2.2" fill="currentColor"/>
+              <line x1="9" y1="11" x2="15" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9" y1="13" x2="15" y2="16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          Schedra
+        </NuxtLink>
         <button class="mobile-channel-button" type="button" @click="channelsDrawerOpen = true">Channels</button>
       </div>
 
@@ -224,7 +248,19 @@ watch(() => route.fullPath, () => {
     </template>
 
     <header v-else class="topbar">
-      <NuxtLink to="/" class="brand">Social Man</NuxtLink>
+      <NuxtLink to="/" class="brand">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
+            <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
+            <circle cx="17" cy="7" r="2.2" fill="currentColor"/>
+            <circle cx="17" cy="17" r="2.2" fill="currentColor"/>
+            <line x1="9" y1="11" x2="15" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="9" y1="13" x2="15" y2="16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        Schedra
+      </NuxtLink>
       <nav class="nav">
         <NuxtLink to="/">Home</NuxtLink>
         <NuxtLink
@@ -251,6 +287,18 @@ watch(() => route.fullPath, () => {
 </template>
 
 <style scoped>
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--brand-fill);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .sidebar-brand {
   color: var(--ink) !important;
   font-size: 17px !important;
