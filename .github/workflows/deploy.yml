@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+      DEPLOY_WEBHOOK_TOKEN: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}
 
     steps:
       - name: Checkout
@@ -83,11 +86,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Notify deploy listener
-        if: ${{ secrets.DEPLOY_WEBHOOK_URL != '' && secrets.DEPLOY_WEBHOOK_TOKEN != '' }}
+        if: ${{ env.DEPLOY_WEBHOOK_URL != '' && env.DEPLOY_WEBHOOK_TOKEN != '' }}
         shell: bash
-        env:
-          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
-          DEPLOY_WEBHOOK_TOKEN: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}
         run: |
           payload=$(cat <<EOF
           {"ref":"${GITHUB_REF}","sha":"${GITHUB_SHA}","services":["api","web"]}
@@ -123,5 +123,5 @@ jobs:
           done
 
       - name: Skip deploy notify when webhook is not configured
-        if: ${{ secrets.DEPLOY_WEBHOOK_URL == '' || secrets.DEPLOY_WEBHOOK_TOKEN == '' }}
+        if: ${{ env.DEPLOY_WEBHOOK_URL == '' || env.DEPLOY_WEBHOOK_TOKEN == '' }}
         run: echo "DEPLOY_WEBHOOK_URL or DEPLOY_WEBHOOK_TOKEN is not configured, skipping VPS notify."
