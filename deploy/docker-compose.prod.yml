@@ -1,0 +1,139 @@
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+  DJANGO_DEBUG: ${DJANGO_DEBUG}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE}
+  CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE}
+  APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  CELERY_TASK_ALWAYS_EAGER: "false"
+  SOCIAL_FORCE_MOCK: ${SOCIAL_FORCE_MOCK}
+  STORAGE_BACKEND: ${STORAGE_BACKEND}
+  CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+  CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+  CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+  META_APP_ID: ${META_APP_ID}
+  META_APP_SECRET: ${META_APP_SECRET}
+  META_GRAPH_BASE_URL: ${META_GRAPH_BASE_URL}
+  META_AUTH_BASE_URL: ${META_AUTH_BASE_URL}
+  META_SCOPES: ${META_SCOPES}
+
+services:
+  deploy-listener:
+    build:
+      context: ./vps
+      dockerfile: Dockerfile
+    container_name: schedra-deploy-listener
+    restart: unless-stopped
+    environment:
+      DEPLOY_HOST: 0.0.0.0
+      DEPLOY_PORT: 8787
+      DEPLOY_WEBHOOK_TOKEN: ${DEPLOY_WEBHOOK_TOKEN}
+      DEPLOY_SCRIPT: /opt/schedra-deploy/deploy.sh
+      DEPLOY_COMPOSE_DIR: /workspace
+      DEPLOY_COMPOSE_FILE: deploy/docker-compose.prod.yml
+      DEPLOY_ENV_FILE: deploy/.env
+      DEPLOY_RETRIES: ${DEPLOY_RETRIES:-3}
+      DEPLOY_RETRY_DELAY: ${DEPLOY_RETRY_DELAY:-10}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../:/workspace
+    networks:
+      default: {}
+      shared-network:
+        aliases:
+          - schedra-deploy-listener
+
+  redis:
+    image: redis:7-alpine
+    container_name: schedra-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ${API_IMAGE}
+    container_name: schedra-api
+    restart: unless-stopped
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8002}:8000"
+    volumes:
+      - media_data:/app/backend/media
+      - static_data:/app/backend/staticfiles
+    networks:
+      default: {}
+      shared-network:
+        aliases:
+          - schedra-api
+
+  worker:
+    image: ${API_IMAGE}
+    container_name: schedra-worker
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "worker", "--loglevel=info"]
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/backend/media
+      - static_data:/app/backend/staticfiles
+    networks:
+      - default
+      - shared-network
+
+  beat:
+    image: ${API_IMAGE}
+    container_name: schedra-beat
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "beat", "--loglevel=info"]
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/backend/media
+      - static_data:/app/backend/staticfiles
+    networks:
+      - default
+      - shared-network
+
+  web:
+    image: ${WEB_IMAGE}
+    container_name: schedra-web
+    restart: unless-stopped
+    environment:
+      NUXT_BACKEND_BASE: http://schedra-api:8000
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: 3000
+    depends_on:
+      - api
+    ports:
+      - "${FRONTEND_PORT:-3006}:3000"
+    networks:
+      default: {}
+      shared-network:
+        aliases:
+          - schedra-web
+
+volumes:
+  media_data:
+  redis_data:
+  static_data:
+
+networks:
+  shared-network:
+    external: true

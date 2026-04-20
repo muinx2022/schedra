@@ -2,8 +2,10 @@ import type { H3Event } from "h3";
 import { appendResponseHeader, getCookie, getHeader, getMethod, readBody } from "h3";
 
 function agentLog(hypothesisId: string, location: string, message: string, data: Record<string, any>) {
+  const agentLogUrl = process.env.DEBUG_AGENT_LOG_URL;
+  if (!agentLogUrl) return;
   // #region agent log
-  fetch("http://127.0.0.1:7303/ingest/1227dba4-b43d-4906-b417-ee17d9ea5438", {
+  fetch(agentLogUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fd08c2" },
     body: JSON.stringify({

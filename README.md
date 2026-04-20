@@ -93,3 +93,11 @@ python manage.py run_due_publish
 cd ../frontend
 npm run build
 ```
+
+## Production deploy
+
+- CI/CD is defined in `.github/workflows/deploy.yml`
+- Docker runtime files live in `deploy/`
+- VPS stack uses the shared Docker Postgres on host `gikky-postgres`
+- The frontend image proxies `/api/*` and `/media/*` to Django internally
+- Webhook deploy is expected to use `https://deploy.schedra.net/deploy` once DNS/tunnel is configured
