@@ -1,0 +1,458 @@
+{% extends "back_office/base.html" %}
+
+{% block title %}Settings · Back Office{% endblock %}
+
+{% block page_header %}Settings{% endblock %}
+
+{% block content %}
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link {% if active_settings_tab == 'media' %}active{% endif %}"
+        id="tab-media-btn"
+        data-bs-toggle="tab"
+        data-bs-target="#tab-media"
+        type="button"
+        role="tab"
+        aria-controls="tab-media"
+        aria-selected="{% if active_settings_tab == 'media' %}true{% else %}false{% endif %}"
+      >
+        <i class="bi bi-hdd-network me-1"></i> Media
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link {% if active_settings_tab == 'providers' %}active{% endif %}"
+        id="tab-providers-btn"
+        data-bs-toggle="tab"
+        data-bs-target="#tab-providers"
+        type="button"
+        role="tab"
+        aria-controls="tab-providers"
+        aria-selected="{% if active_settings_tab == 'providers' %}true{% else %}false{% endif %}"
+      >
+        <i class="bi bi-diagram-3 me-1"></i> Providers
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link"
+        id="tab-more-btn"
+        data-bs-toggle="tab"
+        data-bs-target="#tab-more"
+        type="button"
+        role="tab"
+        aria-controls="tab-more"
+        aria-selected="false"
+      >
+        <i class="bi bi-sliders me-1"></i> General
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade {% if active_settings_tab == 'media' %}show active{% endif %}" id="tab-media" role="tabpanel" aria-labelledby="tab-media-btn" tabindex="0">
+      <div class="card bo-card">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Media upload</h2>
+          <p class="text-muted small mb-4">
+            Choose where new uploads go. Existing assets keep their original backend. Secrets are stored encrypted.
+          </p>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="settings_section" value="media">
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="mb-4">
+              <label class="form-label fw-semibold">{{ form.upload_provider.label }}</label>
+              {{ form.upload_provider }}
+              {% if form.upload_provider.help_text %}
+                <div class="form-text">{{ form.upload_provider.help_text }}</div>
+              {% endif %}
+              {% if form.upload_provider.errors %}
+                <div class="text-danger small mt-1">{{ form.upload_provider.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div id="bo-section-local" class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+              <div class="fw-semibold mb-2"><i class="bi bi-hdd me-1"></i> Local filesystem</div>
+              <div class="mb-0">
+                <label class="form-label" for="id_local_public_base_url">{{ form.local_public_base_url.label }}</label>
+                {{ form.local_public_base_url }}
+                {% if form.local_public_base_url.help_text %}
+                  <div class="form-text">{{ form.local_public_base_url.help_text }}</div>
+                {% endif %}
+                <div class="form-text">Required for real Meta and Instagram publishing when uploads stay on local storage.</div>
+              </div>
+            </div>
+
+            <div id="bo-section-cloudinary" class="border rounded p-3 mb-3 bg-light bg-opacity-50" style="display:none">
+              <div class="fw-semibold mb-3"><i class="bi bi-cloud-upload me-1"></i> Cloudinary</div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_cloudinary_cloud_name">{{ form.cloudinary_cloud_name.label }}</label>
+                  {{ form.cloudinary_cloud_name }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_cloudinary_api_key">{{ form.cloudinary_api_key.label }}</label>
+                  {{ form.cloudinary_api_key }}
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_cloudinary_api_secret">{{ form.cloudinary_api_secret.label }}</label>
+                  {{ form.cloudinary_api_secret }}
+                  <div class="form-text">{{ form.cloudinary_api_secret.help_text }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="bo-section-s3" class="border rounded p-3 mb-3 bg-light bg-opacity-50" style="display:none">
+              <div class="fw-semibold mb-3"><i class="bi bi-box-seam me-1"></i> Amazon S3</div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_bucket">{{ form.s3_bucket.label }}</label>
+                  {{ form.s3_bucket }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_region">{{ form.s3_region.label }}</label>
+                  {{ form.s3_region }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_prefix">{{ form.s3_prefix.label }}</label>
+                  {{ form.s3_prefix }}
+                  <div class="form-text">Optional folder prefix inside the bucket (no leading slash).</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_access_key_id">{{ form.s3_access_key_id.label }}</label>
+                  {{ form.s3_access_key_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_secret_access_key">{{ form.s3_secret_access_key.label }}</label>
+                  {{ form.s3_secret_access_key }}
+                  <div class="form-text">{{ form.s3_secret_access_key.help_text }}</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_public_base_url">{{ form.s3_public_base_url.label }}</label>
+                  {{ form.s3_public_base_url }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_s3_endpoint_url">{{ form.s3_endpoint_url.label }}</label>
+                  {{ form.s3_endpoint_url }}
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-dark">Save media settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade {% if active_settings_tab == 'providers' %}show active{% endif %}" id="tab-providers" role="tabpanel" aria-labelledby="tab-providers-btn" tabindex="0">
+      <div class="card bo-card">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Social providers</h2>
+          <p class="text-muted small mb-4">
+            Configure app-level credentials and defaults for provider families here. This keeps workspace settings reusable as you add Meta, X, TikTok, and other providers later.
+          </p>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="settings_section" value="providers">
+
+            {% if provider_form.non_field_errors %}
+              <div class="alert alert-danger">{{ provider_form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+              <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                <div>
+                  <div class="fw-semibold"><i class="bi bi-diagram-3 me-1"></i> Meta family</div>
+                  <div class="text-muted small">Use one app configuration for Facebook Pages now, and keep the same base for Instagram and stories later. Include `business_management` so reconnects can discover all managed Pages.</div>
+                </div>
+                <span class="badge text-bg-secondary">Active now</span>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_meta_app_id">{{ provider_form.meta_app_id.label|default:"Meta app ID" }}</label>
+                  {{ provider_form.meta_app_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_meta_app_secret">{{ provider_form.meta_app_secret.label|default:"Meta app secret" }}</label>
+                  {{ provider_form.meta_app_secret }}
+                  {% if provider_form.instance.meta_app_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.meta_app_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_meta_scopes">Meta scopes</label>
+                  {{ provider_form.meta_scopes }}
+                  <div class="form-text">{{ provider_form.meta_scopes.help_text }}</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_meta_graph_base_url">Graph API base URL</label>
+                  {{ provider_form.meta_graph_base_url }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_meta_auth_base_url">OAuth dialog URL</label>
+                  {{ provider_form.meta_auth_base_url }}
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+              <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                <div>
+                  <div class="fw-semibold"><i class="bi bi-instagram me-1"></i> Instagram Login</div>
+                  <div class="text-muted small">Direct Instagram OAuth for professional accounts. This does not go through a Facebook Page.</div>
+                </div>
+                <span class="badge text-bg-secondary">Active now</span>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_instagram_app_id">Instagram app ID</label>
+                  {{ provider_form.instagram_app_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_instagram_app_secret">Instagram app secret</label>
+                  {{ provider_form.instagram_app_secret }}
+                  {% if provider_form.instance.instagram_app_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.instagram_app_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_instagram_scopes">Instagram scopes</label>
+                  {{ provider_form.instagram_scopes }}
+                  <div class="form-text">Recommended scopes: `instagram_business_basic` and `instagram_business_content_publish`.</div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label" for="id_instagram_graph_base_url">Graph API base URL</label>
+                  {{ provider_form.instagram_graph_base_url }}
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label" for="id_instagram_auth_base_url">OAuth authorize URL</label>
+                  {{ provider_form.instagram_auth_base_url }}
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label" for="id_instagram_token_base_url">Token exchange URL</label>
+                  {{ provider_form.instagram_token_base_url }}
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+              <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                <div>
+                  <div class="fw-semibold"><i class="bi bi-at me-1"></i> X</div>
+                  <div class="text-muted small">Prepare client credentials now so feed posting can plug into the same settings area later.</div>
+                </div>
+                <span class="badge text-bg-light border">Planned</span>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_x_client_id">Client ID</label>
+                  {{ provider_form.x_client_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_x_client_secret">Client secret</label>
+                  {{ provider_form.x_client_secret }}
+                  {% if provider_form.instance.x_client_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.x_client_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_x_scopes">Default scopes</label>
+                  {{ provider_form.x_scopes }}
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+              <div class="mb-3">
+                <div class="fw-semibold"><i class="bi bi-music-note-beamed me-1"></i> TikTok</div>
+                <div class="text-muted small">OAuth app credentials for TikTok Creator profile publishing.</div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_tiktok_client_key">Client key</label>
+                  {{ provider_form.tiktok_client_key }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_tiktok_client_secret">Client secret</label>
+                  {{ provider_form.tiktok_client_secret }}
+                  {% if provider_form.instance.tiktok_client_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.tiktok_client_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_tiktok_scopes">Default scopes</label>
+                  {{ provider_form.tiktok_scopes }}
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+              <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                <div>
+                  <div class="fw-semibold"><i class="bi bi-linkedin me-1"></i> LinkedIn</div>
+                  <div class="text-muted small">OAuth app credentials for LinkedIn personal profile publishing.</div>
+                </div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_linkedin_client_id">Client ID</label>
+                  {{ provider_form.linkedin_client_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_linkedin_client_secret">Client secret</label>
+                  {{ provider_form.linkedin_client_secret }}
+                  {% if provider_form.instance.linkedin_client_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.linkedin_client_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_linkedin_scopes">Scopes</label>
+                  {{ provider_form.linkedin_scopes }}
+                  <div class="form-text">Recommended: <code>openid,profile,email,w_member_social</code></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+              <div class="mb-3">
+                <div class="fw-semibold"><i class="bi bi-youtube me-1"></i> YouTube</div>
+                <div class="text-muted small">OAuth app credentials for YouTube channel video publishing.</div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_youtube_client_id">Client ID</label>
+                  {{ provider_form.youtube_client_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_youtube_client_secret">Client secret</label>
+                  {{ provider_form.youtube_client_secret }}
+                  {% if provider_form.instance.youtube_client_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.youtube_client_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_youtube_scopes">Scopes</label>
+                  {{ provider_form.youtube_scopes }}
+                  <div class="form-text">Recommended: <code>https://www.googleapis.com/auth/youtube.upload,https://www.googleapis.com/auth/youtube.readonly</code></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-4 bg-light bg-opacity-50">
+              <div class="mb-3">
+                <div class="fw-semibold">Pinterest</div>
+                <div class="text-muted small">OAuth app credentials for Pinterest board publishing.</div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_pinterest_app_id">App ID</label>
+                  {{ provider_form.pinterest_app_id }}
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="id_pinterest_app_secret">App secret</label>
+                  {{ provider_form.pinterest_app_secret }}
+                  {% if provider_form.instance.pinterest_app_secret_enc %}
+                    <div class="form-text text-success">Secret is already saved. Enter a new value only if you want to replace it.</div>
+                  {% endif %}
+                  <div class="form-text">{{ provider_form.pinterest_app_secret.help_text }}</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="id_pinterest_scopes">Scopes</label>
+                  {{ provider_form.pinterest_scopes }}
+                  <div class="form-text">Recommended: <code>boards:read,pins:read,pins:write</code></div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-dark">Save provider settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-more" role="tabpanel" aria-labelledby="tab-more-btn" tabindex="0">
+      <div class="card bo-card">
+        <div class="card-body text-muted">
+          <p class="mb-0">More settings will appear here later.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var sel = document.getElementById("id_upload_provider");
+      if (!sel) return;
+
+      function sync() {
+        var v = sel.value;
+        document.getElementById("bo-section-local").style.display = v === "local" ? "block" : "none";
+        document.getElementById("bo-section-cloudinary").style.display = v === "cloudinary" ? "block" : "none";
+        document.getElementById("bo-section-s3").style.display = v === "s3" ? "block" : "none";
+      }
+
+      sel.addEventListener("change", sync);
+      sync();
+    })();
+  </script>
+
+  <script>
+    function settingsTabNameFromHash(hash) {
+      if (hash === "#tab-providers") return "providers";
+      if (hash === "#tab-more") return "more";
+      return "media";
+    }
+
+    function syncSettingsTabUrl(tabName) {
+      var hash = "#tab-" + tabName;
+      var url = new URL(window.location.href);
+      url.searchParams.set("tab", tabName);
+      url.hash = hash;
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    document.querySelectorAll("#tab-media select").forEach(function (el) {
+      if (el.id === "id_upload_provider") {
+        el.classList.add("form-select");
+      }
+    });
+    document.querySelectorAll("#tab-media input:not([type=hidden])").forEach(function (el) {
+      if (el.type && (el.type === "checkbox" || el.type === "radio")) return;
+      el.classList.add("form-control");
+    });
+    document.querySelectorAll("#tab-providers input:not([type=hidden]), #tab-providers textarea").forEach(function (el) {
+      if (el.type && (el.type === "checkbox" || el.type === "radio")) return;
+      el.classList.add("form-control");
+    });
+
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (trigger) {
+      trigger.addEventListener("shown.bs.tab", function (event) {
+        var target = event.target.getAttribute("data-bs-target") || "#tab-media";
+        syncSettingsTabUrl(target.replace("#tab-", ""));
+      });
+    });
+
+    var params = new URLSearchParams(window.location.search);
+    var initialTab = params.get("tab") || settingsTabNameFromHash(window.location.hash);
+    if (["media", "providers", "more"].includes(initialTab)) {
+      var trigger = document.getElementById("tab-" + initialTab + "-btn");
+      if (trigger && window.bootstrap && window.bootstrap.Tab) {
+        window.bootstrap.Tab.getOrCreateInstance(trigger).show();
+      }
+    }
+  </script>
+{% endblock %}

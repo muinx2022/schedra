@@ -1,0 +1,111 @@
+:root{
+  --bo-sidebar-bg:#212529;
+  --bo-sidebar-muted:rgba(255,255,255,.65);
+  --bo-content-bg:#f8f9fa;
+}
+
+body.bo-body{
+  background:var(--bo-content-bg);
+}
+
+.bo-layout{
+  min-height:100vh;
+  align-items:stretch;
+}
+
+.bo-sidebar{
+  width:280px;
+  min-width:280px;
+  flex:0 0 280px;
+  background:var(--bo-sidebar-bg);
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+}
+
+.bo-brand{
+  color:#fff;
+}
+
+.bo-brand:hover{
+  color:#fff;
+  opacity:.95;
+}
+
+.bo-sidebar .nav-link{
+  color:rgba(255,255,255,.85);
+  border-radius:.5rem;
+  padding:.5rem .75rem;
+}
+
+.bo-sidebar .nav-link:hover{
+  background:rgba(255,255,255,.08);
+  color:#fff;
+}
+
+.bo-sidebar .nav-link.active{
+  background:rgba(13,110,253,.18);
+  color:#fff;
+}
+
+.bo-sidebar .bo-app-label{
+  color:var(--bo-sidebar-muted);
+  font-size:.75rem;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  margin-top:1rem;
+  margin-bottom:.35rem;
+}
+
+.bo-topbar{
+  background:#fff;
+  border-bottom:1px solid rgba(0,0,0,.075);
+  position:sticky;
+  top:0;
+  z-index:1020;
+}
+
+.bo-page{
+  padding:1.25rem;
+}
+
+.bo-card{
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+
+.bo-sidebar .accordion{
+  --bs-accordion-bg: transparent;
+  --bs-accordion-color: rgba(255,255,255,.9);
+  --bs-accordion-border-color: rgba(255,255,255,.12);
+  --bs-accordion-btn-color: rgba(255,255,255,.9);
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-btn-focus-border-color: transparent;
+  --bs-accordion-btn-focus-box-shadow: none;
+  --bs-accordion-active-color: #fff;
+  --bs-accordion-active-bg: rgba(255,255,255,.06);
+}
+
+.bo-sidebar .accordion-button{
+  padding:.5rem .75rem;
+  border-radius:.5rem;
+}
+
+.bo-sidebar .accordion-button::after{
+  filter: invert(1);
+  opacity:.85;
+}
+
+.bo-sidebar .accordion-body{
+  padding:.35rem .25rem .5rem .25rem;
+}
+
+.bo-sidebar .bo-menu-icon{
+  width:1.25rem;
+  display:inline-flex;
+  justify-content:center;
+  margin-right:.35rem;
+  opacity:.9;
+}
+

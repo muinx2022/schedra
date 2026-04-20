@@ -1,0 +1,125 @@
+{% extends "back_office/base.html" %}
+{% load back_office_extras %}
+
+{% block title %}{{ model_ref.verbose_name_plural }} · Back Office{% endblock %}
+
+{% block page_header %}{{ model_ref.verbose_name_plural }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h4 mb-0">{{ model_ref.verbose_name_plural }}</h1>
+      <div class="text-muted small">{{ model_meta.app_label }}.{{ model_meta.model_name }}</div>
+    </div>
+
+    <div class="d-flex gap-2">
+      {% if perm.add %}
+        <a class="btn btn-dark btn-sm" href="{% url 'back_office:model_add' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+          Add
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+      <a class="nav-link active" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+        <i class="bi bi-table me-1"></i> List
+      </a>
+    </li>
+    {% if perm.add %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'back_office:model_add' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+          <i class="bi bi-plus-circle me-1"></i> Add
+        </a>
+      </li>
+    {% endif %}
+  </ul>
+
+  <div class="card bo-card mb-3">
+    <div class="card-body">
+      <form class="row g-2" method="get">
+        <div class="col-12 col-md-7 col-lg-6">
+          <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Search..." />
+        </div>
+        <div class="col-12 col-md-3 col-lg-3">
+          <input class="form-control" type="text" name="o" value="{{ order }}" placeholder="Order field (optional)" />
+        </div>
+        <div class="col-12 col-md-2 col-lg-3 d-grid">
+          <button class="btn btn-outline-dark" type="submit">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card bo-card">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            {% for f in display_fields %}
+              <th class="text-nowrap">{{ f.name }}</th>
+            {% endfor %}
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+            <tr>
+              {% for f in display_fields %}
+                <td class="text-nowrap">
+                  {{ obj|attr:f.name }}
+                </td>
+              {% endfor %}
+              <td class="text-end text-nowrap">
+                {% if perm.change %}
+                  <a class="btn btn-outline-dark btn-sm" href="{% url 'back_office:model_edit' app_label=model_meta.app_label model_name=model_meta.model_name pk=obj.pk %}">
+                    Edit
+                  </a>
+                {% endif %}
+                {% if perm.delete %}
+                  <a class="btn btn-outline-danger btn-sm" href="{% url 'back_office:model_delete' app_label=model_meta.app_label model_name=model_meta.model_name pk=obj.pk %}">
+                    Delete
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{{ display_fields|length|add:1 }}" class="text-muted p-3">No results.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="card-footer">
+        <nav aria-label="Pagination">
+          <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?q={{ q|urlencode }}&o={{ order|urlencode }}&page={{ page_obj.previous_page_number }}">Prev</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Prev</span></li>
+            {% endif %}
+
+            <li class="page-item disabled">
+              <span class="page-link">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?q={{ q|urlencode }}&o={{ order|urlencode }}&page={{ page_obj.next_page_number }}">Next</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Next</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+

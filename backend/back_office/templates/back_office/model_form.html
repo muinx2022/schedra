@@ -1,0 +1,89 @@
+{% extends "back_office/base.html" %}
+
+{% block title %}
+  {% if mode == "create" %}Add{% else %}Edit{% endif %} · {{ model_ref.verbose_name_plural }} · Back Office
+{% endblock %}
+
+{% block page_header %}
+  {% if mode == "create" %}Add{% else %}Edit{% endif %} · {{ model_ref.verbose_name_plural }}
+{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h4 mb-0">
+        {% if mode == "create" %}Add{% else %}Edit{% endif %}
+        <span class="text-muted">·</span>
+        {{ model_ref.verbose_name_plural }}
+      </h1>
+      <div class="text-muted small">{{ model_meta.app_label }}.{{ model_meta.model_name }}</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-dark btn-sm" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+        Back to list
+      </a>
+    </div>
+  </div>
+
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+      <a class="nav-link" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+        <i class="bi bi-table me-1"></i> List
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="#">
+        {% if mode == "create" %}
+          <i class="bi bi-plus-circle me-1"></i> Add
+        {% else %}
+          <i class="bi bi-pencil-square me-1"></i> Edit
+        {% endif %}
+      </a>
+    </li>
+  </ul>
+
+  <div class="card bo-card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger bo-card">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+            {% endif %}
+            {% if field.errors %}
+              <div class="text-danger small mt-1">{{ field.errors }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-dark" type="submit">Save</button>
+          <a class="btn btn-outline-secondary" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Bootstrap-ish styling for Django default widgets
+    document.querySelectorAll("input, select, textarea").forEach((el) => {
+      if (el.type === "checkbox" || el.type === "radio" || el.type === "hidden") return;
+      el.classList.add("form-control");
+    });
+    document.querySelectorAll("select[multiple]").forEach((el) => {
+      el.classList.remove("form-control");
+      el.classList.add("form-select");
+    });
+  </script>
+{% endblock %}
+

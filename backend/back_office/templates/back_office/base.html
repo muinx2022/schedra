@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Back Office{% endblock %}</title>
+    {% load static %}
+    {% load back_office_extras %}
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="{% static 'back_office/back_office.css' %}" />
+    {% block head %}{% endblock %}
+  </head>
+  <body class="bo-body">
+    {% if request.user.is_authenticated and request.user.is_staff %}
+      <div class="d-flex bo-layout">
+        <aside class="bo-sidebar d-none d-lg-flex flex-column p-3">
+          <a class="d-flex align-items-center mb-3 text-decoration-none bo-brand" href="{% url 'back_office:dashboard' %}">
+            <span class="fs-5 fw-semibold"><i class="bi bi-grid-1x2-fill me-2"></i>Back Office</span>
+          </a>
+
+          <nav class="d-flex flex-column gap-2">
+            <a class="nav-link" href="{% url 'back_office:dashboard' %}">
+              <span class="bo-menu-icon"><i class="bi bi-speedometer2"></i></span>
+              Dashboard
+            </a>
+            <a class="nav-link" href="{% url 'back_office:settings' %}">
+              <span class="bo-menu-icon"><i class="bi bi-gear-fill"></i></span>
+              Settings
+            </a>
+
+            <div class="bo-app-label">Apps</div>
+            {% for app_label, models in apps_models.items %}
+              <div class="bo-app-label">
+                <span class="bo-menu-icon"><i class="bi {{ app_label|icon_for_app }}"></i></span>
+                {{ app_label }}
+              </div>
+              <div class="nav nav-pills flex-column gap-1">
+                {% for m in models %}
+                  <a class="nav-link" href="{% url 'back_office:model_list' app_label=m.app_label model_name=m.model_name %}">
+                    <span class="bo-menu-icon"><i class="bi {{ m.model_name|icon_for_model }}"></i></span>
+                    {{ m.verbose_name_plural }}
+                  </a>
+                {% endfor %}
+              </div>
+            {% empty %}
+              <div class="text-white-50 small mt-2">No accessible models.</div>
+            {% endfor %}
+          </nav>
+
+          <hr class="border-secondary my-3" />
+          <div class="small text-white-50">
+            Signed in as <span class="text-white">{{ request.user.username }}</span>
+          </div>
+        </aside>
+
+        <div class="flex-grow-1">
+          <header class="bo-topbar">
+            <div class="container-fluid">
+              <div class="d-flex align-items-center justify-content-between py-2">
+                <div class="d-flex align-items-center gap-2">
+                  <a class="btn btn-outline-dark btn-sm d-lg-none" href="{% url 'back_office:dashboard' %}">Menu</a>
+                  <div class="fw-semibold">{% block page_header %}Back Office{% endblock %}</div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                  <form method="post" action="{% url 'back_office:logout' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-dark btn-sm" type="submit">Logout</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main class="bo-page">
+            {% if messages %}
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} mb-3 bo-card" role="alert">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+            {% block content %}{% endblock %}
+          </main>
+        </div>
+      </div>
+    {% else %}
+      <div class="container py-5">
+        {% block content_full %}{% endblock %}
+      </div>
+    {% endif %}
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
+

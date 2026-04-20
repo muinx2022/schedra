@@ -1,0 +1,39 @@
+{% extends "back_office/base.html" %}
+
+{% block title %}Delete · {{ model_ref.verbose_name_plural }} · Back Office{% endblock %}
+
+{% block page_header %}Delete · {{ model_ref.verbose_name_plural }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h4 mb-0">Delete</h1>
+      <div class="text-muted small">{{ model_meta.app_label }}.{{ model_meta.model_name }}</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-dark btn-sm" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+        Back to list
+      </a>
+    </div>
+  </div>
+
+  <div class="card border-danger bo-card">
+    <div class="card-body">
+      <p class="mb-2">Are you sure you want to delete:</p>
+      <div class="p-3 bg-light border rounded mb-3">
+        <div class="fw-semibold">{{ object }}</div>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+          <button class="btn btn-danger" type="submit">Yes, delete</button>
+          <a class="btn btn-outline-secondary" href="{% url 'back_office:model_list' app_label=model_meta.app_label model_name=model_meta.model_name %}">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+

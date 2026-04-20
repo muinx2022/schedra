@@ -1,0 +1,33 @@
+{% extends "back_office/base.html" %}
+
+{% block title %}Dashboard · Back Office{% endblock %}
+
+{% block page_header %}Dashboard{% endblock %}
+
+{% block content %}
+  <div class="mb-3">
+    <div class="text-muted">Choose a model from the sidebar to manage data.</div>
+  </div>
+
+  <div class="row g-3">
+    {% for app_label, models in apps_models.items %}
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card bo-card">
+          <div class="card-header bg-white fw-semibold">{{ app_label }}</div>
+          <div class="list-group list-group-flush">
+            {% for m in models %}
+              <a class="list-group-item list-group-item-action" href="{% url 'back_office:model_list' app_label=m.app_label model_name=m.model_name %}">
+                {{ m.verbose_name_plural }}
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-warning mb-0 bo-card">No models available to your account.</div>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
