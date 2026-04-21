@@ -523,6 +523,18 @@ async function handleCallback(providerCode: ProviderCode, code: string) {
       { method: "POST", body: { code, redirect_uri: callbackUrlFor(providerCode) } }
     )
     availableAccounts.value = result.accounts
+    if (providerCode === "tiktok" && result.accounts.length === 1) {
+      await apiFetch(`/connections/${providerCode}/connect-account/`, {
+        method: "POST",
+        body: { external_id: result.accounts[0].external_id },
+      })
+      await refreshAccounts()
+      await refreshNuxtData("sidebar-accounts")
+      await refreshConnections()
+      clearOAuthContext()
+      resetFlow()
+      return
+    }
     step.value = "selecting"
     await refreshConnections()
     clearOAuthContext()
