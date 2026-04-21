@@ -299,5 +299,5 @@ class CampaignFlowTests(APITestCase):
         self.assertFalse(Campaign.objects.filter(id=campaign_id).exists())
         self.assertFalse(MediaAsset.objects.filter(id__in=[self.image_asset_1.id, self.image_asset_2.id]).exists())
         self.assertEqual(PostMedia.objects.count(), 0)
-        backend.delete.assert_any_call("campaign/image-one")
-        backend.delete.assert_any_call("campaign/image-two")
+        backend.delete.assert_any_call("campaign/image-one", content_type="image/jpeg")
+        backend.delete.assert_any_call("campaign/image-two", content_type="image/jpeg")
