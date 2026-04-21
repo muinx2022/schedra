@@ -3,6 +3,32 @@ from rest_framework.response import Response
 
 from .models import MediaAsset
 from .serializers import MediaAssetSerializer
+
+
+def _is_svg_upload(file_obj) -> bool:
+    try:
+        original_position = file_obj.tell()
+    except Exception:
+        original_position = None
+
+    try:
+        header = file_obj.read(512)
+    finally:
+        if original_position is not None:
+            file_obj.seek(original_position)
+        else:
+            try:
+                file_obj.seek(0)
+            except Exception:
+                pass
+
+    if isinstance(header, str):
+        sample = header.lower()
+    else:
+        sample = header.decode("utf-8", "ignore").lower()
+    return "<svg" in sample
+
+
 class MediaAssetViewSet(viewsets.ModelViewSet):
     serializer_class = MediaAssetSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -17,6 +43,11 @@ class MediaAssetViewSet(viewsets.ModelViewSet):
         content_type = getattr(file_obj, "content_type", "") or "application/octet-stream"
         if not (content_type.startswith("image/") or content_type.startswith("video/")):
             return Response({"detail": "Only image and video uploads are supported."}, status=status.HTTP_400_BAD_REQUEST)
+        if content_type.startswith("image/") and _is_svg_upload(file_obj):
+            return Response(
+                {"detail": "SVG uploads are not supported for social publishing. Export this asset as PNG or JPG first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         title = request.data.get("title") or file_obj.name
 

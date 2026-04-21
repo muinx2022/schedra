@@ -111,6 +111,22 @@ class MediaLibraryUploadTests(TestCase):
         self.assertEqual(asset.storage_backend, "local")
         self.assertTrue(asset.storage_key.startswith("media_assets/"))
 
+    def test_upload_endpoint_rejects_svg_disguised_as_png(self):
+        upload = BytesIO(b'<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"></svg>')
+        upload.name = "logo.png"
+
+        response = self.client.post(
+            "/api/media/",
+            {"file": upload, "title": "Logo"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["detail"],
+            "SVG uploads are not supported for social publishing. Export this asset as PNG or JPG first.",
+        )
+
     @override_settings(APP_PUBLIC_BASE_URL="https://schedra.net", MEDIA_URL="/media/")
     def test_local_public_url_falls_back_to_app_public_base_url(self):
         local_asset = MediaAsset.objects.create(
