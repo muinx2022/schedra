@@ -11,6 +11,7 @@ type MediaAsset = {
   file_name: string
   kind?: string
   size_bytes?: number
+  duration_sec?: number | null
   created_at: string
 }
 
@@ -160,6 +161,7 @@ const tiktokForm = reactive({
 })
 
 const selectedAssets = ref<MediaAsset[]>([])
+const videoDurationByAssetId = reactive<Record<string, number | null>>({})
 
 const { data: posts, refresh: refreshPosts } = useAsyncData(
   "posts",
@@ -269,6 +271,7 @@ const selectedImageAssets = computed(() =>
 const hasSelectedVideo = computed(() => selectedVideoAssets.value.length > 0)
 const tiktokUsesVideo = computed(() => hasTikTokSelection.value && hasSelectedVideo.value)
 const tiktokPrivacyOptions = computed(() => tiktokOptions.value?.privacy_level_options || [])
+const tiktokAccountLooksPublic = computed(() => hasTikTokSelection.value && tiktokPrivacyOptions.value.includes("PUBLIC_TO_EVERYONE"))
 const tiktokSelectedPrivacyIsPrivate = computed(() => tiktokForm.privacy_level === "SELF_ONLY")
 const tiktokBrandedContentPrivateConflict = computed(() =>
   hasTikTokSelection.value && tiktokForm.brand_content_toggle && tiktokSelectedPrivacyIsPrivate.value
@@ -277,6 +280,26 @@ const tiktokDisclosureLabel = computed(() => {
   if (tiktokForm.brand_content_toggle) return "Your photo/video will be labeled as 'Paid partnership'."
   if (tiktokForm.brand_organic_toggle) return "Your photo/video will be labeled as 'Promotional content'."
   return ""
+})
+const tiktokConsentLabel = computed(() => {
+  if (tiktokForm.brand_content_toggle) {
+    return "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation."
+  }
+  return "By posting, you agree to TikTok's Music Usage Confirmation."
+})
+const tiktokAccountPrivacyWarning = computed(() => {
+  if (!tiktokAccountLooksPublic.value) return ""
+  return "This TikTok account appears public. If your TikTok app is still unaudited, direct post can fail until the creator switches the account itself to private."
+})
+const tiktokVideoDurationExceededMessage = computed(() => {
+  if (!tiktokUsesVideo.value) return ""
+  const limit = Number(tiktokOptions.value?.max_video_post_duration_sec || 0)
+  if (!limit) return ""
+  const video = selectedVideoAssets.value[0]
+  if (!video) return ""
+  const duration = videoDurationByAssetId[video.id]
+  if (!duration || duration <= limit) return ""
+  return `Selected video is ${Math.ceil(duration)}s, but this TikTok account allows at most ${limit}s.`
 })
 const tiktokCreatorLabel = computed(() => {
   const creator = tiktokOptions.value?.creator
@@ -336,6 +359,15 @@ watch(
 )
 
 watch(
+  () => tiktokForm.brand_content_toggle,
+  (enabled) => {
+    if (!enabled || tiktokForm.privacy_level !== "SELF_ONLY") return
+    const fallback = tiktokPrivacyOptions.value.find((option) => option !== "SELF_ONLY")
+    if (fallback) tiktokForm.privacy_level = fallback
+  }
+)
+
+watch(
   () => hasSelectedVideo.value,
   (hasVideo) => {
     if (!hasVideo) {
@@ -343,6 +375,16 @@ watch(
       tiktokForm.allow_stitch = false
     }
   }
+)
+
+watch(
+  selectedVideoAssets,
+  (assets) => {
+    for (const asset of assets) {
+      void ensureVideoDuration(asset)
+    }
+  },
+  { immediate: true }
 )
 
 const filteredChannel = computed(() =>
@@ -473,6 +515,47 @@ function resetTikTokForm() {
   tiktokForm.brand_organic_toggle = false
   tiktokForm.brand_content_toggle = false
   tiktokForm.consent_confirmed = false
+}
+
+async function readVideoDuration(url: string): Promise<number | null> {
+  if (!import.meta.client || !url) return null
+  return await new Promise<number | null>((resolve, reject) => {
+    const video = document.createElement("video")
+    const cleanup = () => {
+      video.removeAttribute("src")
+      video.load()
+    }
+    video.preload = "metadata"
+    video.muted = true
+    video.onloadedmetadata = () => {
+      const duration = Number(video.duration)
+      cleanup()
+      if (!Number.isFinite(duration) || duration <= 0) {
+        reject(new Error("Invalid video duration"))
+        return
+      }
+      resolve(duration)
+    }
+    video.onerror = () => {
+      cleanup()
+      reject(new Error("Video metadata load failed"))
+    }
+    video.src = url
+  })
+}
+
+async function ensureVideoDuration(asset?: MediaAsset | null) {
+  if (!asset || !isVideoAsset(asset) || videoDurationByAssetId[asset.id] !== undefined) return
+  videoDurationByAssetId[asset.id] = null
+  try {
+    videoDurationByAssetId[asset.id] = await readVideoDuration(asset.file_url)
+  } catch {
+    videoDurationByAssetId[asset.id] = null
+  }
+}
+
+async function ensureSelectedVideoDurations() {
+  await Promise.all(selectedVideoAssets.value.map((asset) => ensureVideoDuration(asset)))
 }
 
 function applyTikTokOverride(override?: Record<string, any> | null) {
@@ -808,6 +891,9 @@ function tiktokPublishValidationError(strategy: Strategy): string | null {
   if (tiktokBrandedContentPrivateConflict.value) {
     return "TikTok paid partnership content cannot use the 'Only me' privacy setting."
   }
+  if (tiktokVideoDurationExceededMessage.value) {
+    return tiktokVideoDurationExceededMessage.value
+  }
   return null
 }
 
@@ -988,6 +1074,9 @@ function onDrop(event: DragEvent) {
 
 function addAsset(asset: MediaAsset) {
   if (!selectedAssets.value.some((item) => item.id === asset.id)) selectedAssets.value.push(asset)
+  if (isVideoAsset(asset)) {
+    void ensureVideoDuration(asset)
+  }
 }
 
 function isVideoAsset(asset?: MediaAsset | null) {
@@ -996,7 +1085,10 @@ function isVideoAsset(asset?: MediaAsset | null) {
 }
 
 function removeAsset(index: number) {
-  selectedAssets.value.splice(index, 1)
+  const [removed] = selectedAssets.value.splice(index, 1)
+  if (removed) {
+    delete videoDurationByAssetId[removed.id]
+  }
 }
 
 function moveAsset(index: number, direction: -1 | 1) {
@@ -1109,6 +1201,9 @@ async function submit(strategy: Strategy) {
   if ((strategy === "publish" || strategy === "queue" || strategy === "schedule") && !form.social_accounts.length) {
     error.value = "Select at least one channel before continuing."
     return
+  }
+  if (hasTikTokSelection.value && hasSelectedVideo.value) {
+    await ensureSelectedVideoDurations()
   }
   const mediaErr = mediaValidationError()
   if (mediaErr) { error.value = mediaErr; return }
@@ -1696,7 +1791,12 @@ function pageHint() {
                   <span>Privacy</span>
                   <select v-model="tiktokForm.privacy_level" class="tiktok-select">
                     <option value="">Choose privacy</option>
-                    <option v-for="option in tiktokPrivacyOptions" :key="option" :value="option">
+                    <option
+                      v-for="option in tiktokPrivacyOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="option === 'SELF_ONLY' && tiktokForm.brand_content_toggle"
+                    >
                       {{ tiktokPrivacyLabel(option) }}
                     </option>
                   </select>
@@ -1705,7 +1805,14 @@ function pageHint() {
                 <div v-if="tiktokOptions?.max_video_post_duration_sec && tiktokUsesVideo" class="tiktok-meta-card">
                   <span>Video limit</span>
                   <strong>{{ tiktokOptions.max_video_post_duration_sec }}s max</strong>
+                  <small v-if="selectedVideoAssets[0] && videoDurationByAssetId[selectedVideoAssets[0].id]">
+                    Selected {{ Math.ceil(videoDurationByAssetId[selectedVideoAssets[0].id] || 0) }}s
+                  </small>
                 </div>
+              </div>
+
+              <div v-if="tiktokAccountPrivacyWarning" class="editor-alert warning">
+                {{ tiktokAccountPrivacyWarning }}
               </div>
 
               <div class="tiktok-toggle-grid">
@@ -1782,9 +1889,13 @@ function pageHint() {
                 </div>
               </div>
 
+              <p v-if="tiktokVideoDurationExceededMessage" class="tiktok-helper-copy danger">
+                {{ tiktokVideoDurationExceededMessage }}
+              </p>
+
               <label class="tiktok-consent">
                 <input v-model="tiktokForm.consent_confirmed" type="checkbox" />
-                <span>I confirm this post follows TikTok music usage rules and content sharing requirements.</span>
+                <span>{{ tiktokConsentLabel }}</span>
               </label>
             </template>
           </div>

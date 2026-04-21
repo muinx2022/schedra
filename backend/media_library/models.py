@@ -58,6 +58,8 @@ class MediaAsset(BaseModel):
 
         media_settings = MediaUploadSettings.load()
         public_base = (media_settings.local_public_base_url or "").strip()
+        if not public_base:
+            public_base = (settings.APP_PUBLIC_BASE_URL or "").strip()
         if public_base:
             return urljoin(f"{public_base.rstrip('/')}/", self.file.url.lstrip("/"))
 
