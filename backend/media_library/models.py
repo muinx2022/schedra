@@ -40,6 +40,12 @@ class MediaAsset(BaseModel):
             return get_backend_by_id(self.storage_backend).get_url(self.storage_key, content_type=self.content_type)
         # local
         if self.file:
+            media_settings = MediaUploadSettings.load()
+            public_base = (media_settings.local_public_base_url or "").strip()
+            if not public_base:
+                public_base = (settings.APP_PUBLIC_BASE_URL or "").strip()
+            if public_base:
+                return urljoin(f"{public_base.rstrip('/')}/", self.file.url.lstrip("/"))
             if request:
                 return request.build_absolute_uri(self.file.url)
             return self.file.url

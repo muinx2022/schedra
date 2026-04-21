@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.conf import settings
+from urllib.parse import urljoin
 
 from media_library.models import MediaAsset
 from media_library.serializers import MediaAssetSerializer
@@ -129,9 +131,12 @@ class CampaignSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_source_file_url(self, obj):
-        request = self.context.get("request")
         if not obj.source_file:
             return ""
+        public_base = (settings.APP_PUBLIC_BASE_URL or "").strip()
+        if public_base:
+            return urljoin(f"{public_base.rstrip('/')}/", obj.source_file.url.lstrip("/"))
+        request = self.context.get("request")
         if request:
             return request.build_absolute_uri(obj.source_file.url)
         return obj.source_file.url

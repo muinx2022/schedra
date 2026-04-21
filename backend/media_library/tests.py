@@ -144,3 +144,21 @@ class MediaLibraryUploadTests(TestCase):
             local_asset.get_public_file_url(),
             "https://schedra.net/media/media_assets/local.jpg",
         )
+
+    @override_settings(APP_PUBLIC_BASE_URL="https://schedra.net", MEDIA_URL="/media/")
+    def test_local_file_url_prefers_app_public_base_url(self):
+        local_asset = MediaAsset.objects.create(
+            workspace=self.workspace,
+            uploaded_by=self.user,
+            title="Local",
+            file="media_assets/local.jpg",
+            storage_backend="local",
+            file_name="local.jpg",
+            content_type="image/jpeg",
+            size_bytes=789,
+        )
+
+        self.assertEqual(
+            local_asset.get_file_url(),
+            "https://schedra.net/media/media_assets/local.jpg",
+        )

@@ -5,6 +5,7 @@ from zipfile import ZipFile
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from accounts.models import Workspace
@@ -123,6 +124,11 @@ class CampaignFlowTests(APITestCase):
         self.assertEqual(response.data["source_file_type"], "txt")
         self.assertEqual(response.data["status"], "uploaded")
         self.assertEqual(response.data["source_media_type"], CampaignMediaType.VIDEO)
+
+    @override_settings(APP_PUBLIC_BASE_URL="https://schedra.net")
+    def test_campaign_source_file_url_uses_app_public_base_url(self):
+        response = self.create_campaign()
+        self.assertTrue(response.data["source_file_url"].startswith("https://schedra.net/"))
 
     @patch("campaigns.views.get_video_duration_seconds", return_value=11)
     def test_generate_segments_from_source_file(self, mocked_duration):
