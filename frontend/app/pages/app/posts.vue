@@ -110,6 +110,7 @@ const uploadStatus = ref("")
 const dragOver = ref(false)
 const saving = ref(false)
 const error = ref("")
+const publishPendingNotice = ref("")
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const actionMenuOpen = ref(false)
 const pendingActionStrategy = ref<Strategy | null>(null)
@@ -549,6 +550,14 @@ async function waitForPublishOutcome(postIds: string[]) {
   return results.filter(Boolean) as Post[]
 }
 
+function publishingPendingMessage(postsToCheck: Post[]) {
+  const count = postsToCheck.filter((post) => post.delivery_status === "publishing").length
+  if (!count) return ""
+  return count > 1
+    ? `Still waiting for TikTok to confirm ${count} publishes. The composer stays open until there is a final result.`
+    : "Still waiting for TikTok to confirm this publish. The composer stays open until there is a final result."
+}
+
 function publishToastMessage(post: Post | null, fallback = "Publishing started.") {
   if (!post) return fallback
   if (post.delivery_status === "published") return "Post published."
@@ -558,6 +567,10 @@ function publishToastMessage(post: Post | null, fallback = "Publishing started."
 }
 
 function setPublishTab(postsToCheck: Post[]) {
+  if (postsToCheck.some((post) => post.delivery_status === "publishing")) {
+    activeTab.value = "sent"
+    return
+  }
   if (postsToCheck.length && postsToCheck.every((post) => ["published", "failed", "canceled"].includes(post.delivery_status))) {
     activeTab.value = "sent"
     return
@@ -808,6 +821,7 @@ function resetComposer(strategy: Strategy = "draft") {
   selectedAssets.value = []
   resetTikTokForm()
   pendingActionStrategy.value = null
+  publishPendingNotice.value = ""
   error.value = ""
 }
 
@@ -850,6 +864,7 @@ function editPost(post: Post) {
   } else {
     applyTikTokOverride({})
   }
+  publishPendingNotice.value = ""
   error.value = ""
 }
 
@@ -1112,6 +1127,7 @@ async function submit(strategy: Strategy) {
 
   saving.value = true
   error.value = ""
+  publishPendingNotice.value = ""
   try {
     let dispatchedPostIds: string[] = []
     let shouldCloseComposer = true
@@ -1133,11 +1149,20 @@ async function submit(strategy: Strategy) {
       setPublishTab(finalPosts)
       const failedPosts = finalPosts.filter((post) => post.delivery_status === "failed")
       const publishedPosts = finalPosts.filter((post) => post.delivery_status === "published")
+      const publishingPosts = finalPosts.filter((post) => post.delivery_status === "publishing")
       if (failedPosts.length) {
         const firstError = postErrorDetail(failedPosts[0]) || "Publishing failed."
         error.value = firstError
         shouldCloseComposer = false
         showToast(firstError, "error")
+      } else if (publishingPosts.length) {
+        publishPendingNotice.value = publishingPendingMessage(finalPosts)
+        shouldCloseComposer = false
+        showToast(
+          publishingPosts.length > 1
+            ? `Waiting for TikTok to confirm ${publishingPosts.length} publishes.`
+            : "Waiting for TikTok to confirm the publish."
+        )
       } else if (publishedPosts.length === dispatchedPostIds.length && publishedPosts.length > 1) {
         showToast(`Published to ${publishedPosts.length} channels.`)
       } else if (publishedPosts.length === 1 && dispatchedPostIds.length === 1) {
@@ -1533,6 +1558,10 @@ function pageHint() {
 
           <div v-if="error" class="editor-alert danger">
             {{ error }}
+          </div>
+
+          <div v-else-if="publishPendingNotice" class="editor-alert warning">
+            {{ publishPendingNotice }}
           </div>
 
           <div
