@@ -34,130 +34,110 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-[calc(100vh-88px)] bg-[radial-gradient(circle_at_top_left,rgba(98,108,122,0.12),transparent_28%),linear-gradient(180deg,#f8f9fb_0%,#edf1f4_100%)] px-5 py-6 md:px-8 md:py-8">
-    <div class="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
-      <section class="overflow-hidden rounded-[32px] border border-[#222831] bg-[#111418] text-white shadow-[0_30px_80px_rgba(15,18,24,0.3)]">
-        <div class="grid h-full grid-cols-1 lg:grid-cols-[0.95fr_1.05fr]">
-          <div class="flex flex-col justify-between border-b border-white/10 p-7 md:p-9 lg:border-r lg:border-b-0">
+  <div class="login-page">
+    <div class="login-shell">
+      <section class="login-console">
+        <div class="console-main">
+          <div class="console-brand">
+            <span class="console-mark">S</span>
             <div>
-              <div class="flex items-center gap-3 text-sm font-medium text-white/74">
-                <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/12 bg-white/8 text-base font-semibold">S</span>
-                <div>
-                  <div class="text-[11px] uppercase tracking-[0.26em] text-white/42">Social workflow</div>
-                  <div class="mt-1 text-base font-semibold text-white">Schedra workspace</div>
-                </div>
-              </div>
-
-              <div class="mt-10">
-                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-white/58">Operator console</p>
-                <h1 class="mt-4 max-w-md text-4xl leading-tight font-semibold tracking-tight md:text-[44px]">
-                  Start where the team left off.
-                </h1>
-                <p class="mt-4 max-w-lg text-sm leading-7 text-white/70">
-                  Move from inbox triage to queued publishing without losing the state of campaigns, approvals, or connected channels.
-                </p>
-              </div>
-            </div>
-
-            <div class="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              <article
-                v-for="item in quickStats"
-                :key="item.label"
-                class="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm"
-              >
-                <p class="text-[11px] uppercase tracking-[0.16em] text-white/48">{{ item.label }}</p>
-                <p class="mt-3 text-3xl font-semibold tracking-tight text-white">{{ item.value }}</p>
-                <p class="mt-1 text-xs text-white/58">{{ item.note }}</p>
-              </article>
+              <div class="console-label">Social workflow</div>
+              <div class="console-name">Schedra workspace</div>
             </div>
           </div>
 
-            <div class="bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-5 md:p-7">
-            <div class="rounded-[28px] border border-white/10 bg-[#171b21] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-5">
-              <div class="flex items-center justify-between border-b border-white/8 pb-4">
-                <div>
-                  <p class="text-[11px] uppercase tracking-[0.2em] text-white/42">Today</p>
-                  <h2 class="mt-2 text-lg font-semibold text-white">Publishing desk</h2>
-                </div>
-                <div class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1 text-xs font-medium text-white/74">
-                  <span class="h-2 w-2 rounded-full bg-white/70" />
-                  Live
-                </div>
-              </div>
+          <div class="console-copy">
+            <p class="console-kicker">Operator console</p>
+            <h1>Start where the team left off.</h1>
+            <p>
+              Move from inbox triage to queued publishing without losing the state of campaigns, approvals, or connected
+              channels.
+            </p>
+          </div>
 
-              <div class="mt-4 grid gap-3">
-                <article
-                  v-for="item in timeline"
-                  :key="item.time + item.title"
-                  class="grid grid-cols-[54px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3"
-                >
-                  <div class="rounded-xl bg-white/6 px-2 py-3 text-center">
-                    <div class="text-sm font-semibold text-white">{{ item.time }}</div>
-                    <div class="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/38">slot</div>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="h-2 w-2 rounded-full bg-white/70" />
-                      <p class="truncate text-sm font-medium text-white">{{ item.title }}</p>
-                    </div>
-                    <p class="mt-2 text-sm leading-6 text-white/60">{{ item.detail }}</p>
-                  </div>
-                </article>
-              </div>
+          <div class="console-stats">
+            <article v-for="item in quickStats" :key="item.label" class="console-stat">
+              <p class="console-stat-label">{{ item.label }}</p>
+              <p class="console-stat-value">{{ item.value }}</p>
+              <p class="console-stat-note">{{ item.note }}</p>
+            </article>
+          </div>
+        </div>
 
-              <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                <div class="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs uppercase tracking-[0.16em] text-white/42">Review queue</span>
-                    <span class="rounded-full bg-white/8 px-2 py-1 text-[11px] text-white/62">14 items</span>
-                  </div>
-                  <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
-                    <div class="h-full w-[72%] rounded-full bg-[#aab4c2]" />
-                  </div>
-                  <p class="mt-3 text-sm text-white/58">Approvals are mostly cleared before the afternoon batch.</p>
-                </div>
-                <div class="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs uppercase tracking-[0.16em] text-white/42">Connected pages</span>
-                    <span class="rounded-full bg-white/8 px-2 py-1 text-[11px] text-white/62">8 healthy</span>
-                  </div>
-                  <div class="mt-4 flex gap-2">
-                    <span v-for="index in 8" :key="index" class="h-8 flex-1 rounded-lg bg-[linear-gradient(180deg,rgba(196,204,214,0.42),rgba(112,121,132,0.2))]" />
-                  </div>
-                  <p class="mt-3 text-sm text-white/58">No token refresh issues detected across active channels.</p>
-                </div>
+        <div class="console-panel">
+          <div class="console-panel-head">
+            <div>
+              <p class="console-panel-label">Today</p>
+              <h2>Publishing desk</h2>
+            </div>
+            <div class="console-live">
+              <span />
+              Live
+            </div>
+          </div>
+
+          <div class="console-timeline">
+            <article v-for="item in timeline" :key="item.time + item.title" class="timeline-item">
+              <div class="timeline-time">
+                <div>{{ item.time }}</div>
+                <small>slot</small>
               </div>
+              <div class="timeline-copy">
+                <div class="timeline-title">
+                  <span />
+                  <p>{{ item.title }}</p>
+                </div>
+                <p class="timeline-detail">{{ item.detail }}</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="console-health">
+            <div class="health-card">
+              <div class="health-head">
+                <span>Review queue</span>
+                <strong>14 items</strong>
+              </div>
+              <div class="health-bar">
+                <div class="health-bar-fill" />
+              </div>
+              <p>Approvals are mostly cleared before the afternoon batch.</p>
+            </div>
+
+            <div class="health-card">
+              <div class="health-head">
+                <span>Connected pages</span>
+                <strong>8 healthy</strong>
+              </div>
+              <div class="health-grid">
+                <span v-for="index in 8" :key="index" />
+              </div>
+              <p>No token refresh issues detected across active channels.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="flex rounded-[32px] border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[0_24px_70px_rgba(19,38,27,0.08)] md:p-6">
-        <div class="flex w-full flex-col rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,253,0.98))] p-5 md:p-7">
-          <div class="flex items-start justify-between gap-4">
+      <section class="login-card">
+        <div class="login-card-inner">
+          <div class="login-head">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--brand)]">Login</p>
-              <h2 class="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)]">Welcome back</h2>
-              <p class="mt-3 max-w-md text-sm leading-6 text-[var(--muted)]">
+              <p class="login-kicker">Login</p>
+              <h2>Welcome back</h2>
+              <p class="login-subtitle">
                 Sign in to resume approvals, queue management, and campaign scheduling.
               </p>
             </div>
-            <NuxtLink
-              to="/"
-              class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-white text-[var(--muted)] transition hover:border-[var(--brand)] hover:text-[var(--ink)]"
-              title="Back to home"
-            >
+
+            <NuxtLink to="/" class="login-home-link" title="Back to home">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </NuxtLink>
           </div>
 
-          <div class="mt-6 grid gap-3 sm:grid-cols-2">
-            <NuxtLink
-              to="/forgot-password"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-medium text-[var(--ink)] transition hover:border-[#8a95a3] hover:bg-[var(--surface-muted)]"
-            >
+          <div class="login-actions">
+            <NuxtLink to="/forgot-password" class="login-action-link">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
@@ -165,10 +145,8 @@ async function submit() {
               </svg>
               Forgot password
             </NuxtLink>
-            <NuxtLink
-              to="/register"
-              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm font-medium text-[var(--muted)] transition hover:border-[#8a95a3] hover:text-[var(--ink)]"
-            >
+
+            <NuxtLink to="/register" class="login-action-link login-action-link-muted">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 5l7 7-7 7" />
                 <path d="M5 12h13" />
@@ -177,11 +155,11 @@ async function submit() {
             </NuxtLink>
           </div>
 
-          <form class="mt-6 space-y-4" @submit.prevent="submit">
-            <label class="block">
-              <span class="mb-2 block text-sm font-medium text-[var(--ink)]">Email</span>
-              <div class="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 transition focus-within:border-[#8a95a3]">
-                <svg class="shrink-0 text-[var(--muted)]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <form class="login-form" @submit.prevent="submit">
+            <label class="login-field">
+              <span>Email</span>
+              <div class="login-input-wrap">
+                <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="3" y="5" width="18" height="14" rx="3" />
                   <path d="M4 7l8 6 8-6" />
                 </svg>
@@ -189,16 +167,15 @@ async function submit() {
                   v-model="form.email"
                   type="email"
                   autocomplete="email"
-                  class="w-full border-0 bg-transparent p-0 text-sm text-[var(--ink)] outline-none placeholder:text-[#a1acb8]"
                   placeholder="you@company.com"
                 />
               </div>
             </label>
 
-            <label class="block">
-              <span class="mb-2 block text-sm font-medium text-[var(--ink)]">Password</span>
-              <div class="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 transition focus-within:border-[#8a95a3]">
-                <svg class="shrink-0 text-[var(--muted)]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <label class="login-field">
+              <span>Password</span>
+              <div class="login-input-wrap">
+                <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="4" y="11" width="16" height="9" rx="2" />
                   <path d="M8 11V8a4 4 0 0 1 8 0v3" />
                 </svg>
@@ -206,12 +183,11 @@ async function submit() {
                   v-model="form.password"
                   :type="showPassword ? 'text' : 'password'"
                   autocomplete="current-password"
-                  class="w-full border-0 bg-transparent p-0 text-sm text-[var(--ink)] outline-none placeholder:text-[#a1acb8]"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
-                  class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[var(--muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+                  class="login-input-toggle"
                   :title="showPassword ? 'Hide password' : 'Show password'"
                   @click="showPassword = !showPassword"
                 >
@@ -229,21 +205,21 @@ async function submit() {
               </div>
             </label>
 
-            <div class="rounded-2xl border border-[var(--line)] bg-[var(--bg)] px-4 py-4 text-sm text-[var(--muted)]">
-              <div class="font-medium text-[var(--ink)]">Session-backed workspace access</div>
-              <div class="mt-3 space-y-2 leading-6">
+            <div class="login-note">
+              <div class="login-note-title">Session-backed workspace access</div>
+              <div class="login-note-copy">
                 <div>Sign in uses Django session cookies through the app BFF.</div>
                 <div>Password reset links are sent to the account email configured for this workspace.</div>
               </div>
             </div>
 
-            <p v-if="error" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p v-if="error" class="login-error">
               {{ error }}
             </p>
 
             <button
               type="submit"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1d232b] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#2a313b] active:bg-[#151a20] disabled:cursor-not-allowed disabled:opacity-45"
+              class="login-submit"
               :disabled="loading || !form.email.trim() || !form.password.trim()"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -254,23 +230,23 @@ async function submit() {
             </button>
           </form>
 
-          <div class="mt-4 flex items-center justify-between gap-4 text-sm text-[var(--muted)]">
+          <div class="login-footer">
             <span>Need access for a new team?</span>
-            <NuxtLink to="/register" class="font-semibold text-[#49515d] hover:text-[var(--ink)]">Create workspace</NuxtLink>
+            <NuxtLink to="/register">Create workspace</NuxtLink>
           </div>
 
-          <div class="mt-6 grid gap-3 border-t border-[var(--line)] pt-5 text-sm text-[var(--muted)] sm:grid-cols-3">
-            <div class="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
-              <div class="text-xs uppercase tracking-[0.16em] text-[#6d7783]">Session</div>
-              <div class="mt-2 font-medium text-[var(--ink)]">Cookie auth</div>
+          <div class="login-meta">
+            <div class="login-meta-card">
+              <div class="login-meta-label">Session</div>
+              <div class="login-meta-value">Cookie auth</div>
             </div>
-            <div class="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
-              <div class="text-xs uppercase tracking-[0.16em] text-[#6d7783]">Security</div>
-              <div class="mt-2 font-medium text-[var(--ink)]">CSRF protected</div>
+            <div class="login-meta-card">
+              <div class="login-meta-label">Security</div>
+              <div class="login-meta-value">CSRF protected</div>
             </div>
-            <div class="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
-              <div class="text-xs uppercase tracking-[0.16em] text-[#6d7783]">Access</div>
-              <div class="mt-2 font-medium text-[var(--ink)]">Single workspace</div>
+            <div class="login-meta-card">
+              <div class="login-meta-label">Access</div>
+              <div class="login-meta-value">Single workspace</div>
             </div>
           </div>
         </div>
@@ -278,3 +254,688 @@ async function submit() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.login-page {
+  --login-page-bg:
+    radial-gradient(circle at top left, rgba(98, 108, 122, 0.12), transparent 28%),
+    linear-gradient(180deg, #f8f9fb 0%, #edf1f4 100%);
+  --login-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 253, 0.98));
+  --login-card-shadow: 0 24px 70px rgba(19, 38, 27, 0.08);
+  --login-control-bg: #ffffff;
+  --login-control-border: var(--line);
+  --login-control-hover: #8a95a3;
+  --login-soft-bg: var(--bg);
+  --login-soft-text: #6d7783;
+  --login-placeholder: #a1acb8;
+  --login-link: #49515d;
+  --login-error-bg: #fef2f2;
+  --login-error-border: #fecaca;
+  --login-error-text: #b91c1c;
+  min-height: calc(100vh - 88px);
+  background: var(--login-page-bg);
+  padding: 24px 20px;
+}
+
+.login-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.login-console {
+  overflow: hidden;
+  border: 1px solid #222831;
+  border-radius: 32px;
+  background: #111418;
+  color: #ffffff;
+  box-shadow: 0 30px 80px rgba(15, 18, 24, 0.3);
+  display: grid;
+}
+
+.console-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.console-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.console-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.console-label,
+.console-kicker,
+.console-panel-label,
+.console-stat-label,
+.health-head span,
+.timeline-time small {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.console-label,
+.console-panel-label {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.console-name,
+.console-copy h1,
+.console-panel-head h2,
+.timeline-title p,
+.console-stat-value {
+  color: #ffffff;
+}
+
+.console-name {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.console-copy h1 {
+  margin: 16px 0 0;
+  max-width: 18ch;
+  font-size: clamp(34px, 4vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.console-copy p,
+.console-stat-note,
+.timeline-detail,
+.health-card p {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.console-copy > p:last-child {
+  margin: 16px 0 0;
+  max-width: 56ch;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.console-kicker {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-weight: 700;
+}
+
+.console-stats {
+  display: grid;
+  gap: 12px;
+}
+
+.console-stat {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+}
+
+.console-stat-label {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.console-stat-value {
+  margin: 12px 0 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.console-stat-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.console-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  padding: 20px;
+}
+
+.console-panel-head,
+.health-head,
+.timeline-title,
+.login-head,
+.login-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.console-panel-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 16px;
+}
+
+.console-panel-head h2 {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+
+.console-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 6px 12px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.console-live span,
+.timeline-title span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.console-timeline,
+.login-form,
+.login-note-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.console-timeline {
+  margin-top: 16px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px;
+}
+
+.timeline-time {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.timeline-time div {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.timeline-time small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.timeline-title p,
+.timeline-detail,
+.health-card p,
+.login-subtitle,
+.login-note,
+.login-footer,
+.login-meta-label {
+  margin: 0;
+}
+
+.timeline-title p {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-detail,
+.health-card p {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.console-health {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.health-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 16px;
+}
+
+.health-head strong {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.health-bar {
+  margin-top: 16px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.health-bar-fill {
+  width: 72%;
+  height: 100%;
+  border-radius: inherit;
+  background: #aab4c2;
+}
+
+.health-grid {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.health-grid span {
+  flex: 1 1 0;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(196, 204, 214, 0.42), rgba(112, 121, 132, 0.2));
+}
+
+.login-card {
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background: var(--panel);
+  box-shadow: var(--login-card-shadow);
+  padding: 16px;
+}
+
+.login-card-inner {
+  width: 100%;
+  border-radius: 28px;
+  background: var(--login-card-bg);
+  padding: 24px;
+}
+
+.login-head {
+  align-items: flex-start;
+}
+
+.login-kicker {
+  margin: 0;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+}
+
+.login-head h2 {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.login-subtitle {
+  margin-top: 12px;
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.login-home-link,
+.login-input-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--login-control-border);
+  background: var(--login-control-bg);
+  color: var(--muted);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.login-home-link {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+}
+
+.login-home-link:hover,
+.login-input-toggle:hover {
+  border-color: var(--login-control-hover);
+  color: var(--ink);
+}
+
+.login-actions,
+.login-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.login-actions {
+  margin-top: 24px;
+}
+
+.login-action-link,
+.login-field span,
+.login-note-title,
+.login-footer a,
+.login-meta-value {
+  color: var(--ink);
+}
+
+.login-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid var(--login-control-border);
+  border-radius: 16px;
+  background: var(--login-control-bg);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.login-action-link:hover {
+  border-color: var(--login-control-hover);
+  background: var(--surface-muted);
+}
+
+.login-action-link-muted {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.login-form {
+  margin-top: 24px;
+}
+
+.login-field {
+  display: grid;
+  gap: 8px;
+}
+
+.login-field span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.login-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--login-control-border);
+  border-radius: 16px;
+  background: var(--login-control-bg);
+  padding: 0 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-input-wrap:focus-within {
+  border-color: var(--login-control-hover);
+}
+
+.login-input-icon {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.login-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 14px 0;
+  font-size: 14px;
+  outline: none;
+}
+
+.login-input-wrap input::placeholder {
+  color: var(--login-placeholder);
+}
+
+.login-input-toggle {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.login-note {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--login-soft-bg);
+  padding: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-note-title {
+  font-weight: 500;
+}
+
+.login-note-copy {
+  margin-top: 12px;
+  line-height: 1.7;
+}
+
+.login-error {
+  border: 1px solid var(--login-error-border);
+  border-radius: 16px;
+  background: var(--login-error-bg);
+  padding: 12px 16px;
+  color: var(--login-error-text);
+  font-size: 14px;
+}
+
+.login-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  background: #1d232b;
+  padding: 14px 20px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: #2a313b;
+}
+
+.login-submit:active:not(:disabled) {
+  background: #151a20;
+}
+
+.login-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.login-footer {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-footer a {
+  font-weight: 600;
+  color: var(--login-link);
+}
+
+.login-footer a:hover {
+  color: var(--ink);
+}
+
+.login-meta {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.login-meta-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--login-control-bg);
+  padding: 14px 16px;
+}
+
+.login-meta-label {
+  color: var(--login-soft-text);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.login-meta-value {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:global(:root[data-theme="dark"]) .login-page {
+  --login-page-bg:
+    radial-gradient(circle at top left, rgba(137, 148, 165, 0.14), transparent 26%),
+    linear-gradient(180deg, #10141a 0%, #0b1015 100%);
+  --login-card-bg: linear-gradient(180deg, rgba(19, 24, 31, 0.98), rgba(14, 19, 26, 0.98));
+  --login-card-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  --login-control-bg: #121821;
+  --login-control-border: #27313d;
+  --login-control-hover: #6f7b89;
+  --login-soft-bg: rgba(255, 255, 255, 0.03);
+  --login-soft-text: #8a96a4;
+  --login-placeholder: #748190;
+  --login-link: #cbd3db;
+  --login-error-bg: rgba(185, 28, 28, 0.16);
+  --login-error-border: rgba(248, 113, 113, 0.28);
+  --login-error-text: #fca5a5;
+}
+
+:global(:root[data-theme="dark"]) .login-card {
+  border-color: #27313d;
+  background: #0f141b;
+}
+
+:global(:root[data-theme="dark"]) .login-home-link,
+:global(:root[data-theme="dark"]) .login-action-link,
+:global(:root[data-theme="dark"]) .login-input-wrap,
+:global(:root[data-theme="dark"]) .login-meta-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+@media (min-width: 1024px) {
+  .login-page {
+    padding: 32px;
+  }
+
+  .login-shell {
+    grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+    align-items: stretch;
+  }
+
+  .login-console {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  .console-main {
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 0;
+    padding: 36px;
+  }
+
+  .console-panel {
+    padding: 28px;
+  }
+}
+
+@media (min-width: 640px) {
+  .console-stats,
+  .console-health,
+  .login-actions,
+  .login-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .console-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .console-main,
+  .console-panel,
+  .login-card,
+  .login-card-inner {
+    padding: 20px;
+  }
+
+  .login-head,
+  .login-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .timeline-item {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-time {
+    display: inline-grid;
+    width: fit-content;
+    min-width: 54px;
+  }
+}
+</style>
