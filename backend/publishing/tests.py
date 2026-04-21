@@ -13,6 +13,7 @@ from social.models import SocialAccount, SocialConnection, SocialProvider
 from social.views import ensure_default_queue_slots
 from publishing.models import DeliveryStatus, Post, PostTarget
 from publishing.tasks import dispatch_due_post_targets
+from publishing.views import _await_publish_now_targets
 
 
 class PublishingFlowTests(APITestCase):
@@ -117,6 +118,42 @@ class PublishingFlowTests(APITestCase):
         self.assertEqual(publish_response.status_code, 200)
         refreshed = self.client.get(f"/api/posts/{post_id}/")
         self.assertEqual(refreshed.data["delivery_status"], "published")
+
+    @patch("publishing.views._await_publish_now_targets")
+    def test_publish_now_returns_fast_failure_when_all_targets_fail(self, mocked_await_targets):
+        response = self.client.post(
+            "/api/posts/",
+            {
+                "internal_name": "Hello",
+                "caption_text": "Hello world",
+                "content_type": "feed_post",
+                "editorial_state": "draft",
+                "delivery_strategy": "now",
+                "delivery_status": "draft",
+                "payload": {"version": 1, "feed_post": {}},
+                "targets": [
+                    {
+                        "social_account": str(self.account.id),
+                        "delivery_strategy": "now",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        post = Post.objects.get(pk=response.data["id"])
+        target = post.targets.get()
+        target.delivery_status = DeliveryStatus.FAILED
+        target.provider_result = {"error": "TikTok app chưa được audit, chỉ được post private."}
+        target.save(update_fields=["delivery_status", "provider_result", "updated_at"])
+        post.delivery_status = DeliveryStatus.FAILED
+        post.save(update_fields=["delivery_status", "updated_at"])
+        mocked_await_targets.return_value = [target]
+
+        publish_response = self.client.post(f"/api/posts/{post.id}/publish_now/", {}, format="json")
+
+        self.assertEqual(publish_response.status_code, 400)
+        self.assertIn("TikTok app chưa được audit", publish_response.data["detail"])
 
     def test_instagram_single_post_requires_exactly_one_media(self):
         response = self.client.post(

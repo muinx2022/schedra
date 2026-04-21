@@ -112,6 +112,7 @@ const saving = ref(false)
 const error = ref("")
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const actionMenuOpen = ref(false)
+const pendingActionStrategy = ref<Strategy | null>(null)
 const actionGroupRef = ref<HTMLElement | null>(null)
 
 const toasts = ref<Toast[]>([])
@@ -406,6 +407,10 @@ const nextStepActions = computed(() => [
     disabled: !canPublishNow.value,
   },
 ])
+
+const pendingAction = computed(() =>
+  nextStepActions.value.find((action) => action.strategy === pendingActionStrategy.value) || null
+)
 
 const minDateTime = computed(() => {
   const now = new Date()
@@ -802,6 +807,7 @@ function resetComposer(strategy: Strategy = "draft") {
   form.social_accounts = activeAccount.value || accounts.value[0]?.id ? [activeAccount.value || accounts.value[0]?.id] : []
   selectedAssets.value = []
   resetTikTokForm()
+  pendingActionStrategy.value = null
   error.value = ""
 }
 
@@ -1162,11 +1168,13 @@ async function submit(strategy: Strategy) {
     error.value = extractApiError(e, "Failed to save post")
     showToast(error.value, "error")
   } finally {
+    pendingActionStrategy.value = null
     saving.value = false
   }
 }
 
 function runNextStep(strategy: Strategy) {
+  pendingActionStrategy.value = strategy
   actionMenuOpen.value = false
   submit(strategy)
 }
@@ -1769,8 +1777,14 @@ function pageHint() {
                   :disabled="saving || !form.caption_text.trim()"
                   @click="actionMenuOpen = !actionMenuOpen"
                 >
-                  Next step
-                  <span>v</span>
+                  <span v-if="saving && pendingAction" class="next-action-loading" aria-hidden="true">
+                    <span class="next-action-spinner"></span>
+                    <span class="next-action-loading-label">{{ pendingAction.label }}</span>
+                  </span>
+                  <template v-else>
+                    Next step
+                    <span>v</span>
+                  </template>
                 </button>
                 <div v-if="actionMenuOpen" class="next-action-menu">
                   <div
@@ -3149,6 +3163,27 @@ function pageHint() {
   gap: 10px;
 }
 
+.next-action-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.next-action-loading-label {
+  font-size: 13px;
+  line-height: 1.2;
+  opacity: 1;
+}
+
+.next-action-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: next-action-spin 0.8s linear infinite;
+}
+
 .next-action-trigger span {
   font-size: 11px;
   line-height: 1;
@@ -3168,6 +3203,12 @@ function pageHint() {
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow-strong);
+}
+
+@keyframes next-action-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .next-action-wrap {

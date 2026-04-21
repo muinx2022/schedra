@@ -1,4 +1,6 @@
 from django.db import transaction
+import time
+
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +12,26 @@ from social.models import QueueSlot
 from .models import DeliveryStatus, Post
 from .serializers import PostSerializer
 from .tasks import get_next_queue_slot_datetime, publish_post_target
+
+
+PUBLISH_NOW_FAST_FAIL_TIMEOUT_SECONDS = 5.0
+PUBLISH_NOW_FAST_FAIL_POLL_INTERVAL_SECONDS = 0.25
+
+
+def _await_publish_now_targets(target_ids: list[str]):
+    from .models import PostTarget
+
+    deadline = time.monotonic() + PUBLISH_NOW_FAST_FAIL_TIMEOUT_SECONDS
+    refreshed: list[PostTarget] = []
+    while True:
+        refreshed = list(PostTarget.objects.filter(id__in=target_ids))
+        if not refreshed:
+            return refreshed
+        if all(target.delivery_status != DeliveryStatus.PUBLISHING for target in refreshed):
+            return refreshed
+        if time.monotonic() >= deadline:
+            return refreshed
+        time.sleep(PUBLISH_NOW_FAST_FAIL_POLL_INTERVAL_SECONDS)
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -56,11 +78,9 @@ class PostViewSet(viewsets.ModelViewSet):
             target.save(update_fields=["delivery_status", "updated_at"])
             publish_post_target.delay(str(target.id))
             target_ids.append(str(target.id))
-        # Refresh to pick up status updates (eager/sync Celery)
+        refreshed = _await_publish_now_targets(target_ids)
         post.refresh_from_db()
         serialized = PostSerializer(post).data
-        from .models import PostTarget
-        refreshed = list(PostTarget.objects.filter(id__in=target_ids))
         failed_targets = [t for t in refreshed if t.delivery_status == DeliveryStatus.FAILED]
         if failed_targets and len(failed_targets) == len(targets):
             errors = [t.provider_result.get("error", "Unknown error") for t in failed_targets if t.provider_result.get("error")]
