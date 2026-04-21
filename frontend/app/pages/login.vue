@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const session = useSessionState()
-const form = reactive({ email: "demo@example.com", password: "demo12345" })
+const form = reactive({ email: "", password: "" })
 const error = ref("")
 const loading = ref(false)
 const showPassword = ref(false)

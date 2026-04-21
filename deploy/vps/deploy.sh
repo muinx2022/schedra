@@ -66,7 +66,6 @@ deploy_with_retry() {
       compose up -d redis && \
       compose run --rm api python manage.py migrate --noinput && \
       compose run --rm api python manage.py collectstatic --noinput && \
-      compose run --rm api python manage.py seed_demo && \
       compose up -d --no-deps "${SERVICES[@]}"; then
       return 0
     fi
