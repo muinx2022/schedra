@@ -840,36 +840,6 @@ async function submit() {
   font-weight: 500;
 }
 
-:global(:root[data-theme="dark"]) .login-page {
-  --login-page-bg:
-    radial-gradient(circle at top left, rgba(137, 148, 165, 0.14), transparent 26%),
-    linear-gradient(180deg, #10141a 0%, #0b1015 100%);
-  --login-card-bg: linear-gradient(180deg, rgba(19, 24, 31, 0.98), rgba(14, 19, 26, 0.98));
-  --login-card-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
-  --login-control-bg: #121821;
-  --login-control-border: #27313d;
-  --login-control-hover: #6f7b89;
-  --login-soft-bg: rgba(255, 255, 255, 0.03);
-  --login-soft-text: #8a96a4;
-  --login-placeholder: #748190;
-  --login-link: #cbd3db;
-  --login-error-bg: rgba(185, 28, 28, 0.16);
-  --login-error-border: rgba(248, 113, 113, 0.28);
-  --login-error-text: #fca5a5;
-}
-
-:global(:root[data-theme="dark"]) .login-card {
-  border-color: #27313d;
-  background: #0f141b;
-}
-
-:global(:root[data-theme="dark"]) .login-home-link,
-:global(:root[data-theme="dark"]) .login-action-link,
-:global(:root[data-theme="dark"]) .login-input-wrap,
-:global(:root[data-theme="dark"]) .login-meta-card {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
 @media (min-width: 1024px) {
   .login-page {
     padding: 32px;
@@ -936,6 +906,70 @@ async function submit() {
     display: inline-grid;
     width: fit-content;
     min-width: 54px;
+  }
+}
+</style>
+
+<style>
+:root[data-theme="dark"] .login-page {
+  --login-page-bg:
+    radial-gradient(circle at top left, rgba(137, 148, 165, 0.14), transparent 26%),
+    linear-gradient(180deg, #10141a 0%, #0b1015 100%);
+  --login-card-bg: linear-gradient(180deg, rgba(19, 24, 31, 0.98), rgba(14, 19, 26, 0.98));
+  --login-card-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  --login-control-bg: #121821;
+  --login-control-border: #27313d;
+  --login-control-hover: #6f7b89;
+  --login-soft-bg: rgba(255, 255, 255, 0.03);
+  --login-soft-text: #8a96a4;
+  --login-placeholder: #748190;
+  --login-link: #cbd3db;
+  --login-error-bg: rgba(185, 28, 28, 0.16);
+  --login-error-border: rgba(248, 113, 113, 0.28);
+  --login-error-text: #fca5a5;
+}
+
+:root[data-theme="dark"] .login-card {
+  border-color: #27313d;
+  background: #0f141b;
+}
+
+:root[data-theme="dark"] .login-home-link,
+:root[data-theme="dark"] .login-action-link,
+:root[data-theme="dark"] .login-input-wrap,
+:root[data-theme="dark"] .login-meta-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .login-page {
+    --login-page-bg:
+      radial-gradient(circle at top left, rgba(137, 148, 165, 0.14), transparent 26%),
+      linear-gradient(180deg, #10141a 0%, #0b1015 100%);
+    --login-card-bg: linear-gradient(180deg, rgba(19, 24, 31, 0.98), rgba(14, 19, 26, 0.98));
+    --login-card-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+    --login-control-bg: #121821;
+    --login-control-border: #27313d;
+    --login-control-hover: #6f7b89;
+    --login-soft-bg: rgba(255, 255, 255, 0.03);
+    --login-soft-text: #8a96a4;
+    --login-placeholder: #748190;
+    --login-link: #cbd3db;
+    --login-error-bg: rgba(185, 28, 28, 0.16);
+    --login-error-border: rgba(248, 113, 113, 0.28);
+    --login-error-text: #fca5a5;
+  }
+
+  :root:not([data-theme]) .login-card {
+    border-color: #27313d;
+    background: #0f141b;
+  }
+
+  :root:not([data-theme]) .login-home-link,
+  :root:not([data-theme]) .login-action-link,
+  :root:not([data-theme]) .login-input-wrap,
+  :root:not([data-theme]) .login-meta-card {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 }
 </style>
