@@ -31,6 +31,8 @@ type PostTarget = {
   delivery_strategy: string
   delivery_status: string
   scheduled_at: string | null
+  provider_payload_override?: Record<string, any>
+  provider_result?: Record<string, any>
 }
 
 type Post = {
@@ -57,6 +59,7 @@ type SocialAccount = {
   channel_name: string
   account_type: string
   status: string
+  metadata?: Record<string, any>
   queue_slots: Array<{
     id: string
     weekday: number
@@ -67,6 +70,19 @@ type SocialAccount = {
 }
 
 type Toast = { id: number; message: string; kind: "success" | "error" }
+type TikTokPublishOptions = {
+  provider: string
+  creator?: {
+    nickname?: string
+    username?: string
+    avatar_url?: string
+  }
+  privacy_level_options: string[]
+  comment_disabled: boolean
+  duet_disabled: boolean
+  stitch_disabled: boolean
+  max_video_post_duration_sec?: number | null
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -123,6 +139,22 @@ const form = reactive({
   strategy: "draft" as Strategy,
   post_mode: "single" as "single" | "carousel",
   scheduled_at: "",
+})
+
+const tiktokOptions = ref<TikTokPublishOptions | null>(null)
+const tiktokOptionsLoading = ref(false)
+const tiktokOptionsError = ref("")
+const tiktokOptionsAccountId = ref("")
+let tiktokOptionsRequestId = 0
+const tiktokForm = reactive({
+  privacy_level: "",
+  allow_comment: false,
+  allow_duet: false,
+  allow_stitch: false,
+  commercial_content_enabled: false,
+  brand_organic_toggle: false,
+  brand_content_toggle: false,
+  consent_confirmed: false,
 })
 
 const selectedAssets = ref<MediaAsset[]>([])
@@ -202,6 +234,11 @@ const currentPost = computed(() =>
 const selectedAccounts = computed(() =>
   accounts.value.filter((account) => form.social_accounts.includes(account.id))
 )
+const selectedTikTokAccounts = computed(() =>
+  selectedAccounts.value.filter((account) => account.account_type === "tiktok_creator")
+)
+const selectedTikTokAccount = computed(() => selectedTikTokAccounts.value[0] || null)
+const hasTikTokSelection = computed(() => selectedTikTokAccounts.value.length > 0)
 const selectedAccount = computed(() => selectedAccounts.value[0] || null)
 const selectedChannelName = computed(() => selectedAccount.value?.channel_name || selectedAccount.value?.provider_name || "Channel")
 const selectedAccountIsInstagram = computed(() => selectedAccount.value?.account_type === "instagram_business")
@@ -227,6 +264,25 @@ const selectedVideoAssets = computed(() =>
 const selectedImageAssets = computed(() =>
   selectedAssets.value.filter((a) => a.kind === "image" || (!a.kind && !VIDEO_EXT.test(a.file_name || "")))
 )
+const hasSelectedVideo = computed(() => selectedVideoAssets.value.length > 0)
+const tiktokUsesVideo = computed(() => hasTikTokSelection.value && hasSelectedVideo.value)
+const tiktokPrivacyOptions = computed(() => tiktokOptions.value?.privacy_level_options || [])
+const tiktokSelectedPrivacyIsPrivate = computed(() => tiktokForm.privacy_level === "SELF_ONLY")
+const tiktokBrandedContentPrivateConflict = computed(() =>
+  hasTikTokSelection.value && tiktokForm.brand_content_toggle && tiktokSelectedPrivacyIsPrivate.value
+)
+const tiktokDisclosureLabel = computed(() => {
+  if (tiktokForm.brand_content_toggle) return "Your photo/video will be labeled as 'Paid partnership'."
+  if (tiktokForm.brand_organic_toggle) return "Your photo/video will be labeled as 'Promotional content'."
+  return ""
+})
+const tiktokCreatorLabel = computed(() => {
+  const creator = tiktokOptions.value?.creator
+  if (!creator) return selectedTikTokAccount.value?.display_name || "TikTok Creator"
+  const nickname = creator.nickname?.trim() || selectedTikTokAccount.value?.display_name || "TikTok Creator"
+  const username = creator.username?.trim()
+  return username ? `${nickname} (@${username})` : nickname
+})
 const selectedAccountsLabel = computed(() => {
   if (!selectedAccounts.value.length) return "No channels selected"
   if (selectedAccounts.value.length === 1) return selectedAccounts.value[0].display_name
@@ -240,6 +296,53 @@ watch(
   }
 )
 
+watch(
+  () => selectedTikTokAccount.value?.id || "",
+  async (accountId, previousId) => {
+    if (!accountId) {
+      resetTikTokForm()
+      return
+    }
+    if (accountId !== previousId) {
+      resetTikTokForm()
+    }
+    if (showComposer.value && accountId !== previousId) {
+      await loadTikTokPublishOptions(accountId)
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => showComposer.value,
+  async (open) => {
+    const accountId = selectedTikTokAccount.value?.id || ""
+    if (open && accountId) {
+      await loadTikTokPublishOptions(accountId)
+    }
+  }
+)
+
+watch(
+  () => tiktokForm.commercial_content_enabled,
+  (enabled) => {
+    if (!enabled) {
+      tiktokForm.brand_organic_toggle = false
+      tiktokForm.brand_content_toggle = false
+    }
+  }
+)
+
+watch(
+  () => hasSelectedVideo.value,
+  (hasVideo) => {
+    if (!hasVideo) {
+      tiktokForm.allow_duet = false
+      tiktokForm.allow_stitch = false
+    }
+  }
+)
+
 const filteredChannel = computed(() =>
   activeAccount.value ? accounts.value.find((account) => account.id === activeAccount.value) || null : null
 )
@@ -248,24 +351,27 @@ const hasChannels = computed(() => accounts.value.length > 0)
 const hasActiveQueueSlots = computed(() =>
   selectedAccounts.value.length > 0 && selectedAccounts.value.every((account) => account.queue_slots?.some((slot) => slot.is_active))
 )
+const tiktokPublishReady = computed(() => !tiktokPublishValidationError("publish"))
 
 const canSaveDraft = computed(() =>
   !!form.caption_text.trim() && !saving.value
 )
 const canQueue = computed(() =>
-  !!form.caption_text.trim() && !!form.social_accounts.length && hasActiveQueueSlots.value && !saving.value
+  !!form.caption_text.trim() && !!form.social_accounts.length && hasActiveQueueSlots.value && !saving.value && !tiktokPublishValidationError("queue")
 )
 const canSchedule = computed(() =>
-  !!form.caption_text.trim() && !!form.social_accounts.length && !!form.scheduled_at && !saving.value
+  !!form.caption_text.trim() && !!form.social_accounts.length && !!form.scheduled_at && !saving.value && !tiktokPublishValidationError("schedule")
 )
 const canPublishNow = computed(() =>
-  !!form.caption_text.trim() && !!form.social_accounts.length && !saving.value
+  !!form.caption_text.trim() && !!form.social_accounts.length && !saving.value && tiktokPublishReady.value
 )
 
 const scheduleActionHint = computed(() => {
   if (saving.value) return "Saving in progress"
   if (!form.caption_text.trim()) return "Add a caption first"
   if (!form.social_accounts.length) return "Choose at least one channel"
+  const tiktokErr = tiktokPublishValidationError("schedule")
+  if (tiktokErr) return tiktokErr
   if (!form.scheduled_at) return "Pick a date and time"
   return "Use selected time"
 })
@@ -296,7 +402,7 @@ const nextStepActions = computed(() => [
     strategy: "publish" as Strategy,
     icon: "P",
     label: "Publish now",
-    hint: "Send immediately",
+    hint: tiktokPublishValidationError("publish") || "Send immediately",
     disabled: !canPublishNow.value,
   },
 ])
@@ -334,6 +440,124 @@ function groupLabel(post: Post) {
 function accountFor(post: Post) {
   const targetId = post.targets[0]?.social_account
   return accounts.value.find((account) => account.id === targetId) || null
+}
+
+function postErrorDetail(post?: Post | null) {
+  if (!post) return ""
+  for (const target of post.targets || []) {
+    const error =
+      target.provider_result?.error
+      || target.provider_result?.detail
+      || target.provider_result?.message
+      || ""
+    if (error) return String(error)
+  }
+  return ""
+}
+
+function resetTikTokForm() {
+  tiktokOptions.value = null
+  tiktokOptionsError.value = ""
+  tiktokOptionsAccountId.value = ""
+  tiktokForm.privacy_level = ""
+  tiktokForm.allow_comment = false
+  tiktokForm.allow_duet = false
+  tiktokForm.allow_stitch = false
+  tiktokForm.commercial_content_enabled = false
+  tiktokForm.brand_organic_toggle = false
+  tiktokForm.brand_content_toggle = false
+  tiktokForm.consent_confirmed = false
+}
+
+function applyTikTokOverride(override?: Record<string, any> | null) {
+  tiktokForm.privacy_level = String(override?.privacy_level || "")
+  tiktokForm.allow_comment = Boolean(override?.allow_comment)
+  tiktokForm.allow_duet = Boolean(override?.allow_duet)
+  tiktokForm.allow_stitch = Boolean(override?.allow_stitch)
+  tiktokForm.commercial_content_enabled = Boolean(override?.commercial_content_enabled)
+  tiktokForm.brand_organic_toggle = Boolean(override?.brand_organic_toggle)
+  tiktokForm.brand_content_toggle = Boolean(override?.brand_content_toggle)
+  tiktokForm.consent_confirmed = Boolean(override?.consent_confirmed)
+}
+
+async function loadTikTokPublishOptions(accountId: string) {
+  if (!accountId) return
+  if (tiktokOptionsLoading.value && tiktokOptionsAccountId.value === accountId) return
+  if (tiktokOptions.value && tiktokOptionsAccountId.value === accountId && !tiktokOptionsError.value) return
+
+  const requestId = ++tiktokOptionsRequestId
+  tiktokOptionsLoading.value = true
+  tiktokOptionsError.value = ""
+  tiktokOptionsAccountId.value = accountId
+  try {
+    const payload = await apiFetch<TikTokPublishOptions>(`/accounts/${accountId}/publish-options/`, { timeout: 30000 })
+    if (requestId !== tiktokOptionsRequestId) return
+    tiktokOptions.value = payload
+    if (!tiktokPrivacyOptions.value.includes(tiktokForm.privacy_level)) {
+      tiktokForm.privacy_level = ""
+    }
+    if (payload.comment_disabled) tiktokForm.allow_comment = false
+    if (payload.duet_disabled) tiktokForm.allow_duet = false
+    if (payload.stitch_disabled) tiktokForm.allow_stitch = false
+  } catch (e: any) {
+    if (requestId !== tiktokOptionsRequestId) return
+    tiktokOptions.value = null
+    const message = extractApiError(e, "Couldn't load TikTok publishing settings.")
+    tiktokOptionsError.value = message.includes("timeout")
+      ? "TikTok creator settings took too long to load. Try again in a moment."
+      : message
+  } finally {
+    if (requestId === tiktokOptionsRequestId) {
+      tiktokOptionsLoading.value = false
+    }
+  }
+}
+
+function tiktokPrivacyLabel(value: string) {
+  const labels: Record<string, string> = {
+    PUBLIC_TO_EVERYONE: "Everyone",
+    MUTUAL_FOLLOW_FRIENDS: "Friends",
+    FOLLOWER_OF_CREATOR: "Followers",
+    SELF_ONLY: "Only me",
+  }
+  return labels[value] || value
+}
+
+async function waitForPostTerminalState(postId: string, timeoutMs = 45000, intervalMs = 2000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    await refreshPosts()
+    const post = posts.value.find((item) => item.id === postId) || null
+    if (!post) return null
+    if (["published", "failed", "canceled"].includes(post.delivery_status)) {
+      return post
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  await refreshPosts()
+  return posts.value.find((item) => item.id === postId) || null
+}
+
+async function waitForPublishOutcome(postIds: string[]) {
+  if (!postIds.length) return []
+  const results = await Promise.all(postIds.map((id) => waitForPostTerminalState(id)))
+  return results.filter(Boolean) as Post[]
+}
+
+function publishToastMessage(post: Post | null, fallback = "Publishing started.") {
+  if (!post) return fallback
+  if (post.delivery_status === "published") return "Post published."
+  if (post.delivery_status === "failed") return postErrorDetail(post) || "Publishing failed."
+  if (post.delivery_status === "canceled") return "Publishing was canceled."
+  return fallback
+}
+
+function setPublishTab(postsToCheck: Post[]) {
+  if (postsToCheck.length && postsToCheck.every((post) => ["published", "failed", "canceled"].includes(post.delivery_status))) {
+    activeTab.value = "sent"
+    return
+  }
+  activeTab.value = "queue"
 }
 
 function accountDescriptor(account?: SocialAccount | null) {
@@ -527,6 +751,7 @@ function mediaValidationError(): string | null {
       if (isMixed) return "LinkedIn doesn't support mixing images and videos in one post."
       if (hasVideos && videos.length > 1) return "LinkedIn only supports one video per post."
     } else if (t === "tiktok_creator") {
+      if (!hasImages && !hasVideos) return "TikTok requires at least one image or video."
       if (isMixed) return "TikTok doesn't support mixing images and videos in one post."
       if (hasVideos && videos.length > 1) return "TikTok only supports one video per post."
     } else if (t === "pinterest_board") {
@@ -548,6 +773,26 @@ function captionValidationError(): string | null {
   return null
 }
 
+function tiktokPublishValidationError(strategy: Strategy): string | null {
+  if (!hasTikTokSelection.value || strategy === "draft") return null
+  if (!tiktokOptionsLoading.value && !tiktokPrivacyOptions.value.length) {
+    return tiktokOptionsError.value || "TikTok publishing settings are not available yet."
+  }
+  if (!tiktokForm.privacy_level) {
+    return "Select a TikTok privacy setting."
+  }
+  if (!tiktokForm.consent_confirmed) {
+    return "Confirm TikTok music usage consent before continuing."
+  }
+  if (tiktokForm.commercial_content_enabled && !tiktokForm.brand_organic_toggle && !tiktokForm.brand_content_toggle) {
+    return "Select at least one TikTok commercial content disclosure option."
+  }
+  if (tiktokBrandedContentPrivateConflict.value) {
+    return "TikTok paid partnership content cannot use the 'Only me' privacy setting."
+  }
+  return null
+}
+
 function resetComposer(strategy: Strategy = "draft") {
   selectedPostId.value = null
   form.caption_text = ""
@@ -556,6 +801,7 @@ function resetComposer(strategy: Strategy = "draft") {
   form.scheduled_at = ""
   form.social_accounts = activeAccount.value || accounts.value[0]?.id ? [activeAccount.value || accounts.value[0]?.id] : []
   selectedAssets.value = []
+  resetTikTokForm()
   error.value = ""
 }
 
@@ -590,6 +836,14 @@ function editPost(post: Post) {
       kind: item.kind,
       created_at: post.created_at,
     }))
+  const tiktokTarget = post.targets.find((target) =>
+    accounts.value.find((account) => account.id === target.social_account)?.account_type === "tiktok_creator"
+  )
+  if (tiktokTarget?.provider_payload_override) {
+    applyTikTokOverride(tiktokTarget.provider_payload_override)
+  } else {
+    applyTikTokOverride({})
+  }
   error.value = ""
 }
 
@@ -741,6 +995,21 @@ function buildMediaItems(assets: MediaAsset[]) {
   }))
 }
 
+function buildProviderPayloadOverride(accountId: string) {
+  const account = accounts.value.find((item) => item.id === accountId)
+  if (!account || account.account_type !== "tiktok_creator") return {}
+  return {
+    privacy_level: tiktokForm.privacy_level,
+    allow_comment: tiktokForm.allow_comment,
+    allow_duet: tiktokForm.allow_duet,
+    allow_stitch: tiktokForm.allow_stitch,
+    commercial_content_enabled: tiktokForm.commercial_content_enabled,
+    brand_organic_toggle: tiktokForm.brand_organic_toggle,
+    brand_content_toggle: tiktokForm.brand_content_toggle,
+    consent_confirmed: tiktokForm.consent_confirmed,
+  }
+}
+
 function buildTargets(strategy: Strategy, socialAccounts: string[], scheduledAt: string) {
   if (!socialAccounts.length) return []
   const deliveryStrategy = strategy === "publish" || strategy === "draft" ? "now" : strategy
@@ -748,6 +1017,7 @@ function buildTargets(strategy: Strategy, socialAccounts: string[], scheduledAt:
     social_account: socialAccount,
     delivery_strategy: deliveryStrategy,
     scheduled_at: strategy === "schedule" && scheduledAt ? scheduledAt : null,
+    provider_payload_override: buildProviderPayloadOverride(socialAccount),
   }))
 }
 
@@ -823,6 +1093,8 @@ async function submit(strategy: Strategy) {
   if (mediaErr) { error.value = mediaErr; return }
   const captionErr = captionValidationError()
   if (captionErr) { error.value = captionErr; return }
+  const tiktokErr = tiktokPublishValidationError(strategy)
+  if (tiktokErr) { error.value = tiktokErr; return }
   if (strategy === "queue" && !hasActiveQueueSlots.value) {
     error.value = "One or more selected channels have no active queue slots."
     return
@@ -835,20 +1107,42 @@ async function submit(strategy: Strategy) {
   saving.value = true
   error.value = ""
   try {
+    let dispatchedPostIds: string[] = []
+    let shouldCloseComposer = true
     // Edit mode: update single existing post with first account
     if (selectedPostId.value) {
       const post = await persistPostForAccount(strategy, form.social_accounts[0] || null)
       await dispatchPost(post, strategy)
+      dispatchedPostIds = [post.id]
     } else {
       // New post: one post per account (or one draft if no accounts)
       const accountIds = form.social_accounts.length ? form.social_accounts : [null]
       const createdPosts = await Promise.all(accountIds.map((id) => persistPostForAccount(strategy, id)))
       await Promise.all(createdPosts.map((post) => dispatchPost(post, strategy)))
+      dispatchedPostIds = createdPosts.map((post) => post.id)
     }
 
     if (strategy === "publish") {
-      activeTab.value = "sent"
-      showToast(form.social_accounts.length > 1 ? `Published to ${form.social_accounts.length} channels.` : "Post published.")
+      const finalPosts = await waitForPublishOutcome(dispatchedPostIds)
+      setPublishTab(finalPosts)
+      const failedPosts = finalPosts.filter((post) => post.delivery_status === "failed")
+      const publishedPosts = finalPosts.filter((post) => post.delivery_status === "published")
+      if (failedPosts.length) {
+        const firstError = postErrorDetail(failedPosts[0]) || "Publishing failed."
+        error.value = firstError
+        shouldCloseComposer = false
+        showToast(firstError, "error")
+      } else if (publishedPosts.length === dispatchedPostIds.length && publishedPosts.length > 1) {
+        showToast(`Published to ${publishedPosts.length} channels.`)
+      } else if (publishedPosts.length === 1 && dispatchedPostIds.length === 1) {
+        showToast("Post published.")
+      } else {
+        showToast(
+          dispatchedPostIds.length > 1
+            ? `Publishing started for ${dispatchedPostIds.length} channels.`
+            : "Publishing started."
+        )
+      }
     } else if (strategy === "queue") {
       activeTab.value = "queue"
       showToast(form.social_accounts.length > 1 ? `Added to queue for ${form.social_accounts.length} channels.` : "Post added to queue.")
@@ -861,7 +1155,9 @@ async function submit(strategy: Strategy) {
     }
 
     await refreshPosts()
-    closeComposer()
+    if (shouldCloseComposer) {
+      closeComposer()
+    }
   } catch (e: any) {
     error.value = extractApiError(e, "Failed to save post")
     showToast(error.value, "error")
@@ -879,9 +1175,13 @@ async function publishNow(postId: string) {
   publishingId.value = postId
   try {
     await apiFetch(`/posts/${postId}/publish_now/`, { method: "POST", body: {} })
-    await refreshPosts()
-    activeTab.value = "sent"
-    showToast("Post published.")
+    const finalPost = await waitForPostTerminalState(postId)
+    setPublishTab(finalPost ? [finalPost] : [])
+    if (finalPost?.delivery_status === "failed") {
+      showToast(publishToastMessage(finalPost, "Publishing failed."), "error")
+    } else {
+      showToast(publishToastMessage(finalPost, "Publishing started."))
+    }
   } catch (e: any) {
     showToast(extractApiError(e, "Failed to publish"), "error")
   } finally {
@@ -1074,6 +1374,7 @@ function pageHint() {
                   <div class="post-body-copy">
                     <strong class="post-row-title">{{ postTitle(post) }}</strong>
                     <p class="post-excerpt">{{ postExcerpt(post) }}</p>
+                    <p v-if="postErrorDetail(post)" class="post-error-copy">{{ postErrorDetail(post) }}</p>
                   </div>
 
                   <div class="post-card-footer">
@@ -1226,6 +1527,13 @@ function pageHint() {
             {{ error }}
           </div>
 
+          <div
+            v-else-if="currentPost?.delivery_status === 'failed' && postErrorDetail(currentPost)"
+            class="editor-alert danger"
+          >
+            {{ postErrorDetail(currentPost) }}
+          </div>
+
           <input ref="fileInputRef" type="file" accept="image/*,video/mp4,video/quicktime,video/webm,video/x-msvideo" multiple style="display:none" @change="onFileInput" />
 
           <template v-if="false">
@@ -1327,6 +1635,121 @@ function pageHint() {
                 <span v-if="uploading && uploadStatus">{{ uploadStatus }}</span>
               </button>
             </div>
+          </div>
+
+          <div v-if="hasTikTokSelection" class="editor-block tiktok-guidance-block">
+            <div class="tiktok-guidance-header">
+              <div>
+                <label class="editor-label">TikTok publishing settings</label>
+                <strong>{{ tiktokCreatorLabel }}</strong>
+              </div>
+              <span class="tiktok-guidance-badge">Fresh from creator info</span>
+            </div>
+
+            <div v-if="tiktokOptionsLoading" class="editor-alert warning">
+              Loading TikTok creator settings...
+            </div>
+            <div v-else-if="tiktokOptionsError" class="editor-alert danger">
+              {{ tiktokOptionsError }}
+            </div>
+
+            <template v-else>
+              <div class="tiktok-grid">
+                <label class="tiktok-field">
+                  <span>Privacy</span>
+                  <select v-model="tiktokForm.privacy_level" class="tiktok-select">
+                    <option value="">Choose privacy</option>
+                    <option v-for="option in tiktokPrivacyOptions" :key="option" :value="option">
+                      {{ tiktokPrivacyLabel(option) }}
+                    </option>
+                  </select>
+                </label>
+
+                <div v-if="tiktokOptions?.max_video_post_duration_sec && tiktokUsesVideo" class="tiktok-meta-card">
+                  <span>Video limit</span>
+                  <strong>{{ tiktokOptions.max_video_post_duration_sec }}s max</strong>
+                </div>
+              </div>
+
+              <div class="tiktok-toggle-grid">
+                <label class="tiktok-toggle">
+                  <input
+                    v-model="tiktokForm.allow_comment"
+                    type="checkbox"
+                    :disabled="tiktokOptions?.comment_disabled"
+                  />
+                  <span>
+                    <strong>Allow comments</strong>
+                    <small v-if="tiktokOptions?.comment_disabled">Unavailable for this creator account</small>
+                    <small v-else>Users turn this on explicitly per TikTok post</small>
+                  </span>
+                </label>
+
+                <label v-if="tiktokUsesVideo" class="tiktok-toggle">
+                  <input
+                    v-model="tiktokForm.allow_duet"
+                    type="checkbox"
+                    :disabled="tiktokOptions?.duet_disabled"
+                  />
+                  <span>
+                    <strong>Allow Duet</strong>
+                    <small v-if="tiktokOptions?.duet_disabled">Unavailable for this creator account</small>
+                    <small v-else>Off until the creator opts in</small>
+                  </span>
+                </label>
+
+                <label v-if="tiktokUsesVideo" class="tiktok-toggle">
+                  <input
+                    v-model="tiktokForm.allow_stitch"
+                    type="checkbox"
+                    :disabled="tiktokOptions?.stitch_disabled"
+                  />
+                  <span>
+                    <strong>Allow Stitch</strong>
+                    <small v-if="tiktokOptions?.stitch_disabled">Unavailable for this creator account</small>
+                    <small v-else>Off until the creator opts in</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="tiktok-commercial-block">
+                <label class="tiktok-toggle">
+                  <input v-model="tiktokForm.commercial_content_enabled" type="checkbox" />
+                  <span>
+                    <strong>Commercial content</strong>
+                    <small>Turn this on when the post includes promotional or paid partnership disclosure.</small>
+                  </span>
+                </label>
+
+                <div v-if="tiktokForm.commercial_content_enabled" class="tiktok-commercial-options">
+                  <label class="tiktok-toggle">
+                    <input v-model="tiktokForm.brand_organic_toggle" type="checkbox" />
+                    <span>
+                      <strong>Promotional content</strong>
+                      <small>Brand promoting its own goods or services.</small>
+                    </span>
+                  </label>
+                  <label class="tiktok-toggle">
+                    <input v-model="tiktokForm.brand_content_toggle" type="checkbox" />
+                    <span>
+                      <strong>Paid partnership</strong>
+                      <small>Creator is promoting another brand.</small>
+                    </span>
+                  </label>
+                  <p v-if="tiktokDisclosureLabel" class="tiktok-helper-copy">
+                    {{ tiktokDisclosureLabel }}
+                  </p>
+                  <p v-if="tiktokBrandedContentPrivateConflict" class="tiktok-helper-copy danger">
+                    Paid partnership content cannot use the "Only me" privacy setting.
+                  </p>
+                </div>
+              </div>
+
+              <label class="tiktok-consent">
+                <input v-model="tiktokForm.consent_confirmed" type="checkbox" />
+                <span>I confirm this post follows TikTok music usage rules and content sharing requirements.</span>
+              </label>
+            </template>
           </div>
 
           <div class="editor-footer">
@@ -1801,6 +2224,14 @@ function pageHint() {
   line-height: 1.65;
 }
 
+.post-error-copy {
+  margin: 0;
+  color: #a02e22;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
 .post-card-footer {
   display: flex;
   align-items: center;
@@ -2066,6 +2497,159 @@ function pageHint() {
 .editor-block.grow .caption-input {
   flex: 1;
   min-height: 120px;
+}
+
+.tiktok-guidance-block {
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: rgba(17, 17, 17, 0.03);
+}
+
+.tiktok-guidance-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tiktok-guidance-header strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.tiktok-guidance-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tiktok-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.tiktok-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tiktok-field > span,
+.tiktok-meta-card > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tiktok-select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+}
+
+.tiktok-select:focus {
+  border-color: rgba(127, 162, 147, 0.56);
+  box-shadow: 0 0 0 3px rgba(127, 162, 147, 0.12);
+}
+
+.tiktok-meta-card {
+  display: grid;
+  gap: 4px;
+  min-width: 132px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line-soft);
+}
+
+.tiktok-meta-card strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.tiktok-toggle-grid,
+.tiktok-commercial-options {
+  display: grid;
+  gap: 10px;
+}
+
+.tiktok-toggle {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.tiktok-toggle input {
+  margin: 2px 0 0;
+}
+
+.tiktok-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.tiktok-toggle strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.tiktok-toggle small,
+.tiktok-helper-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tiktok-commercial-block {
+  display: grid;
+  gap: 10px;
+}
+
+.tiktok-commercial-options {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line-soft);
+}
+
+.tiktok-helper-copy {
+  margin: 0;
+}
+
+.tiktok-helper-copy.danger {
+  color: #a02e22;
+}
+
+.tiktok-consent {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.tiktok-consent input {
+  margin: 2px 0 0;
 }
 
 .editor-label {
@@ -3027,7 +3611,8 @@ function pageHint() {
   }
 
   .page-grid,
-  .post-mode-grid {
+  .post-mode-grid,
+  .tiktok-grid {
     grid-template-columns: 1fr;
   }
 

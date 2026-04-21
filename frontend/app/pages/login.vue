@@ -4,6 +4,8 @@ const form = reactive({ email: "", password: "" })
 const error = ref("")
 const loading = ref(false)
 const showPassword = ref(false)
+const emailInputRef = ref<HTMLInputElement | null>(null)
+const passwordInputRef = ref<HTMLInputElement | null>(null)
 
 const quickStats = [
   { label: "Queued this week", value: "148", note: "+12% vs last week" },
@@ -16,6 +18,21 @@ const timeline = [
   { time: "11:10", title: "Queue filled for tomorrow", detail: "Six posts distributed across three channels." },
   { time: "15:40", title: "Comments sweep complete", detail: "Inbox triage closed with no pending escalations." },
 ]
+
+const canSubmit = computed(() => !!form.email.trim() && !!form.password.trim() && !loading.value)
+
+function syncAutofillValues() {
+  const emailValue = emailInputRef.value?.value || ""
+  const passwordValue = passwordInputRef.value?.value || ""
+  if (emailValue && emailValue !== form.email) form.email = emailValue
+  if (passwordValue && passwordValue !== form.password) form.password = passwordValue
+}
+
+onMounted(() => {
+  syncAutofillValues()
+  window.setTimeout(syncAutofillValues, 120)
+  window.setTimeout(syncAutofillValues, 500)
+})
 
 async function submit() {
   if (loading.value) return
@@ -164,10 +181,12 @@ async function submit() {
                   <path d="M4 7l8 6 8-6" />
                 </svg>
                 <input
+                  ref="emailInputRef"
                   v-model="form.email"
                   type="email"
                   autocomplete="email"
                   placeholder="you@company.com"
+                  @input="syncAutofillValues"
                 />
               </div>
             </label>
@@ -180,10 +199,12 @@ async function submit() {
                   <path d="M8 11V8a4 4 0 0 1 8 0v3" />
                 </svg>
                 <input
+                  ref="passwordInputRef"
                   v-model="form.password"
                   :type="showPassword ? 'text' : 'password'"
                   autocomplete="current-password"
                   placeholder="Enter your password"
+                  @input="syncAutofillValues"
                 />
                 <button
                   type="button"
@@ -220,7 +241,7 @@ async function submit() {
             <button
               type="submit"
               class="login-submit"
-              :disabled="loading || !form.email.trim() || !form.password.trim()"
+              :disabled="!canSubmit"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />

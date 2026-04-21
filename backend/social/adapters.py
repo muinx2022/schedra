@@ -52,6 +52,12 @@ class ProviderAdapter:
     def publish_post(self, target_account: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
+    def get_publish_options(self, target_account: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    def get_publish_status(self, target_account: dict[str, Any], provider_result: dict[str, Any]) -> dict[str, Any]:
+        return provider_result
+
     def fetch_daily_insights(self, target_account: dict[str, Any], since_date, until_date) -> list[dict[str, Any]]:
         raise NotImplementedError
 
@@ -1314,6 +1320,7 @@ class TikTokAdapter(ProviderAdapter):
     RETRYABLE_REQUEST_ATTEMPTS = 2
     RETRYABLE_REQUEST_DELAY = 1.0
     USER_AGENT = "Schedra/1.0 (+https://schedra.net)"
+    PUBLISH_OPTIONS_CACHE_MAX_AGE = 15 * 60
 
     @property
     def _settings(self) -> SocialProviderSettings:
@@ -1394,11 +1401,11 @@ class TikTokAdapter(ProviderAdapter):
         detail = str(getattr(exc, "reason", exc) or "").lower()
         return "timed out" in detail
 
-    def _urlopen(self, request: Request):
+    def _urlopen(self, request: Request, timeout: int | float | None = None):
         last_exc: Exception | None = None
         for attempt in range(1, self.RETRYABLE_REQUEST_ATTEMPTS + 1):
             try:
-                return urlopen(request, timeout=self.REQUEST_TIMEOUT)
+                return urlopen(request, timeout=timeout or self.REQUEST_TIMEOUT)
             except (URLError, TimeoutError, socket.timeout) as exc:
                 last_exc = exc
                 if attempt >= self.RETRYABLE_REQUEST_ATTEMPTS or not self._is_retryable_network_error(exc):
@@ -1414,6 +1421,7 @@ class TikTokAdapter(ProviderAdapter):
         method: str = "GET",
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
+        timeout: int | float | None = None,
     ) -> dict[str, Any]:
         url = f"{self.API_BASE}{path}"
         if params:
@@ -1429,7 +1437,7 @@ class TikTokAdapter(ProviderAdapter):
             headers["Content-Type"] = "application/json; charset=UTF-8"
         request = Request(url, data=payload, method=method, headers=headers)
         try:
-            with self._urlopen(request) as response:
+            with self._urlopen(request, timeout=timeout) as response:
                 body = response.read().decode("utf-8")
                 result = json.loads(body) if body else {}
         except HTTPError as exc:
@@ -1526,6 +1534,119 @@ class TikTokAdapter(ProviderAdapter):
         except Exception as exc:
             return {"valid": False, "provider": "tiktok", "detail": str(exc)}
 
+    def _cached_publish_options(self, target_account: dict[str, Any]) -> dict[str, Any] | None:
+        cache = target_account.get("publish_options_cache") or {}
+        if not isinstance(cache, dict):
+            return None
+        payload = cache.get("data")
+        fetched_at = cache.get("fetched_at")
+        if not isinstance(payload, dict) or fetched_at in (None, ""):
+            return None
+        try:
+            fetched_at_value = float(fetched_at)
+        except (TypeError, ValueError):
+            return None
+        if time.time() - fetched_at_value > self.PUBLISH_OPTIONS_CACHE_MAX_AGE:
+            return None
+        return payload
+
+    def get_publish_options(self, target_account: dict[str, Any], timeout: int | float | None = None) -> dict[str, Any]:
+        cached = self._cached_publish_options(target_account)
+        if cached:
+            return cached
+        access_token = decrypt_value(target_account.get("access_token", ""))
+        result = self._api("/post/publish/creator_info/query/", access_token, method="POST", data={}, timeout=timeout)
+        data = result.get("data") or {}
+        return {
+            "provider": "tiktok",
+            "creator": {
+                "nickname": data.get("creator_nickname") or target_account.get("display_name") or "TikTok Creator",
+                "username": data.get("creator_username") or "",
+                "avatar_url": data.get("creator_avatar_url") or target_account.get("avatar_url") or "",
+            },
+            "privacy_level_options": data.get("privacy_level_options") or [],
+            "comment_disabled": bool(data.get("comment_disabled")),
+            "duet_disabled": bool(data.get("duet_disabled")),
+            "stitch_disabled": bool(data.get("stitch_disabled")),
+            "max_video_post_duration_sec": data.get("max_video_post_duration_sec"),
+        }
+
+    def get_publish_status(self, target_account: dict[str, Any], provider_result: dict[str, Any]) -> dict[str, Any]:
+        access_token = decrypt_value(target_account.get("access_token", ""))
+        publish_id = provider_result.get("provider_post_id") or ((provider_result.get("raw") or {}).get("data") or {}).get("publish_id")
+        if not publish_id:
+            raise ValueError("TikTok publish status check requires a publish_id.")
+        result = self._api("/post/publish/status/fetch/", access_token, method="POST", data={"publish_id": publish_id})
+        data = result.get("data") or {}
+        raw_status = str(data.get("status") or "").upper()
+        fail_reason = data.get("fail_reason") or data.get("error") or data.get("message") or ""
+        status_map = {
+            "PROCESSING_UPLOAD": "publishing",
+            "PROCESSING_DOWNLOAD": "publishing",
+            "PROCESSING_PUBLISH": "publishing",
+            "SEND_TO_USER_INBOX": "published",
+            "PUBLISH_COMPLETE": "published",
+            "FAILED": "failed",
+        }
+        normalized_status = status_map.get(raw_status, "publishing")
+        response = {
+            **provider_result,
+            "provider_post_id": publish_id,
+            "status": normalized_status,
+            "raw_status": raw_status,
+            "raw": result,
+        }
+        if fail_reason:
+            response["error"] = str(fail_reason)
+        if data.get("publicaly_available_post_id"):
+            response["external_object_id"] = data.get("publicaly_available_post_id")
+        if data.get("uploaded_bytes"):
+            response["uploaded_bytes"] = data.get("uploaded_bytes")
+        return response
+
+    def _publish_settings(self, target_account: dict[str, Any], payload: dict[str, Any], *, has_video: bool) -> dict[str, Any]:
+        publish_options = self.get_publish_options(target_account)
+        override = payload.get("provider_payload_override") or {}
+        privacy_level = (override.get("privacy_level") or "").strip()
+        if not privacy_level:
+            raise ValueError("Select a TikTok privacy setting before publishing.")
+        allowed_privacy = publish_options.get("privacy_level_options") or []
+        if privacy_level not in allowed_privacy:
+            raise ValueError("The selected TikTok privacy setting is no longer available. Refresh and try again.")
+
+        if not override.get("consent_confirmed"):
+            raise ValueError("TikTok publish requires explicit music usage consent.")
+
+        commercial_content_enabled = bool(override.get("commercial_content_enabled"))
+        brand_organic = bool(override.get("brand_organic_toggle"))
+        brand_content = bool(override.get("brand_content_toggle"))
+        if commercial_content_enabled and not (brand_organic or brand_content):
+            raise ValueError("Select at least one TikTok commercial content disclosure option.")
+        if brand_content and privacy_level == "SELF_ONLY":
+            raise ValueError("TikTok branded content visibility cannot be private.")
+
+        allow_comment = bool(override.get("allow_comment"))
+        allow_duet = bool(override.get("allow_duet"))
+        allow_stitch = bool(override.get("allow_stitch"))
+
+        if publish_options.get("comment_disabled"):
+            allow_comment = False
+        if has_video and publish_options.get("duet_disabled"):
+            allow_duet = False
+        if has_video and publish_options.get("stitch_disabled"):
+            allow_stitch = False
+
+        settings = {
+            "privacy_level": privacy_level,
+            "disable_comment": not allow_comment,
+            "brand_content_toggle": brand_content,
+            "brand_organic_toggle": brand_organic,
+        }
+        if has_video:
+            settings["disable_duet"] = not allow_duet
+            settings["disable_stitch"] = not allow_stitch
+        return settings
+
     def publish_post(self, target_account: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
         access_token = decrypt_value(target_account.get("access_token", ""))
         caption = payload.get("caption_text", "")
@@ -1535,22 +1656,23 @@ class TikTokAdapter(ProviderAdapter):
         images = [m for m in media_items if m.get("kind") != "video"]
 
         if videos:
-            return self._publish_video(access_token, caption, videos[0]["file_url"])
+            settings = self._publish_settings(target_account, payload, has_video=True)
+            return self._publish_video(access_token, caption, videos[0]["file_url"], settings)
         elif images:
-            return self._publish_photos(access_token, caption, [m["file_url"] for m in images])
+            settings = self._publish_settings(target_account, payload, has_video=False)
+            return self._publish_photos(access_token, caption, [m["file_url"] for m in images], settings)
         else:
             raise ValueError("TikTok requires at least one image or video.")
 
-    def _publish_photos(self, access_token: str, caption: str, image_urls: list[str]) -> dict[str, Any]:
+    def _publish_photos(self, access_token: str, caption: str, image_urls: list[str], settings: dict[str, Any]) -> dict[str, Any]:
         body = {
             "post_info": {
                 "title": caption[:2200],
-                "privacy_level": "PUBLIC_TO_EVERYONE",
-                "disable_duet": False,
-                "disable_comment": False,
-                "disable_stitch": False,
-                "brand_content_toggle": False,
-                "brand_organic_toggle": False,
+                "description": caption[:2200],
+                "privacy_level": settings["privacy_level"],
+                "disable_comment": settings["disable_comment"],
+                "brand_content_toggle": settings["brand_content_toggle"],
+                "brand_organic_toggle": settings["brand_organic_toggle"],
             },
             "source_info": {
                 "source": "PULL_FROM_URL",
@@ -1562,16 +1684,18 @@ class TikTokAdapter(ProviderAdapter):
         }
         result = self._api("/post/publish/content/init/", access_token, method="POST", data=body)
         publish_id = (result.get("data") or {}).get("publish_id", "")
-        return {"provider_post_id": publish_id, "status": "published", "raw": result}
+        return {"provider_post_id": publish_id, "status": "publishing", "raw": result}
 
-    def _publish_video(self, access_token: str, caption: str, video_url: str) -> dict[str, Any]:
+    def _publish_video(self, access_token: str, caption: str, video_url: str, settings: dict[str, Any]) -> dict[str, Any]:
         body = {
             "post_info": {
                 "title": caption[:2200],
-                "privacy_level": "PUBLIC_TO_EVERYONE",
-                "disable_duet": False,
-                "disable_comment": False,
-                "disable_stitch": False,
+                "privacy_level": settings["privacy_level"],
+                "disable_duet": settings["disable_duet"],
+                "disable_comment": settings["disable_comment"],
+                "disable_stitch": settings["disable_stitch"],
+                "brand_content_toggle": settings["brand_content_toggle"],
+                "brand_organic_toggle": settings["brand_organic_toggle"],
             },
             "source_info": {
                 "source": "PULL_FROM_URL",
@@ -1582,7 +1706,7 @@ class TikTokAdapter(ProviderAdapter):
         }
         result = self._api("/post/publish/video/init/", access_token, method="POST", data=body)
         publish_id = (result.get("data") or {}).get("publish_id", "")
-        return {"provider_post_id": publish_id, "status": "published", "raw": result}
+        return {"provider_post_id": publish_id, "status": "publishing", "raw": result}
 
 
 class YouTubeAdapter(ProviderAdapter):

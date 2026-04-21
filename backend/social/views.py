@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -183,17 +184,19 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
             )
         except Exception as exc:
             return self._adapter_error_response(exc)
+        encrypted_access_token = encrypt_value(result.access_token)
+        encrypted_refresh_token = encrypt_value(result.refresh_token)
+        try:
+            accounts = adapter.list_accounts(encrypted_access_token)
+        except Exception as exc:
+            return self._adapter_error_response(exc)
         connection.external_user_id = result.external_user_id
-        connection.access_token = encrypt_value(result.access_token)
-        connection.refresh_token = encrypt_value(result.refresh_token)
+        connection.access_token = encrypted_access_token
+        connection.refresh_token = encrypted_refresh_token
         connection.scopes = result.scopes or []
         connection.metadata = result.metadata or {}
         connection.status = "connected"
         connection.save()
-        try:
-            accounts = adapter.list_accounts(connection.access_token)
-        except Exception as exc:
-            return self._adapter_error_response(exc)
         response_payload = {
             "connection": SocialConnectionSerializer(connection).data,
             "accounts": accounts,
@@ -300,12 +303,69 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
 class SocialAccountViewSet(viewsets.ModelViewSet):
     serializer_class = SocialAccountSerializer
     permission_classes = [permissions.IsAuthenticated]
+    TIKTOK_PUBLISH_OPTIONS_CACHE_KEY = "tiktok_publish_options_cache"
+    TIKTOK_PUBLISH_OPTIONS_FAST_TIMEOUT = 5
 
     def get_queryset(self):
         return SocialAccount.objects.filter(workspace=self.request.user.workspace).select_related("provider", "connection")
 
     def perform_destroy(self, instance):
         instance.delete()
+
+    def _target_account_payload(self, account: SocialAccount) -> dict:
+        metadata = account.metadata or {}
+        return {
+            "external_id": account.external_id,
+            "display_name": account.display_name,
+            "account_type": account.account_type,
+            "access_token": metadata.get("access_token", ""),
+            "refresh_token": metadata.get("refresh_token", ""),
+            "page_access_token": metadata.get("page_access_token", ""),
+            "parent_page_id": metadata.get("parent_page_id", ""),
+            "username": metadata.get("username", ""),
+            "avatar_url": metadata.get("avatar_url", ""),
+            "open_id": metadata.get("open_id", ""),
+            "publish_options_cache": metadata.get(self.TIKTOK_PUBLISH_OPTIONS_CACHE_KEY, {}),
+        }
+
+    def _tiktok_publish_options_cache(self, account: SocialAccount) -> dict | None:
+        metadata = account.metadata or {}
+        cache = metadata.get(self.TIKTOK_PUBLISH_OPTIONS_CACHE_KEY)
+        return cache if isinstance(cache, dict) else None
+
+    def _store_tiktok_publish_options_cache(self, account: SocialAccount, options: dict) -> None:
+        metadata = {**(account.metadata or {})}
+        metadata[self.TIKTOK_PUBLISH_OPTIONS_CACHE_KEY] = {
+            "fetched_at": timezone.now().timestamp(),
+            "data": options,
+        }
+        account.metadata = metadata
+        account.save(update_fields=["metadata", "updated_at"])
+
+    def _default_tiktok_publish_options(self, account: SocialAccount, detail: str = "") -> dict:
+        metadata = account.metadata or {}
+        payload = {
+            "provider": "tiktok",
+            "creator": {
+                "nickname": account.display_name or "TikTok Creator",
+                "username": metadata.get("username", ""),
+                "avatar_url": metadata.get("avatar_url", ""),
+            },
+            "privacy_level_options": [
+                "PUBLIC_TO_EVERYONE",
+                "FOLLOWER_OF_CREATOR",
+                "MUTUAL_FOLLOW_FRIENDS",
+                "SELF_ONLY",
+            ],
+            "comment_disabled": False,
+            "duet_disabled": False,
+            "stitch_disabled": False,
+            "max_video_post_duration_sec": None,
+            "stale": True,
+        }
+        if detail:
+            payload["detail"] = detail
+        return payload
 
     def _queue_slot(self, account: SocialAccount, slot_id: str) -> QueueSlot:
         return get_object_or_404(QueueSlot, social_account=account, id=slot_id)
@@ -367,3 +427,25 @@ class SocialAccountViewSet(viewsets.ModelViewSet):
             return duplicate_error
         serializer.save()
         return Response(QueueSlotSerializer(slot).data)
+
+    @action(detail=True, methods=["get"], url_path="publish-options")
+    def publish_options(self, request, pk=None):
+        account = self.get_object()
+        adapter = get_provider_adapter(account.provider.code)
+        if account.provider.code == SocialProviderCode.TIKTOK:
+            cache = self._tiktok_publish_options_cache(account)
+            payload = self._target_account_payload(account)
+            try:
+                options = adapter.get_publish_options(payload, timeout=self.TIKTOK_PUBLISH_OPTIONS_FAST_TIMEOUT)
+                self._store_tiktok_publish_options_cache(account, options)
+                return Response(options)
+            except Exception as exc:
+                if cache and isinstance(cache.get("data"), dict):
+                    cached_options = {**cache["data"], "stale": True, "detail": str(exc)}
+                    return Response(cached_options)
+                return Response(self._default_tiktok_publish_options(account, str(exc)))
+        try:
+            options = adapter.get_publish_options(self._target_account_payload(account))
+        except Exception as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(options)
