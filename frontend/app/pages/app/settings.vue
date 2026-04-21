@@ -209,9 +209,24 @@ function providerFromConnections(state: string) {
   return validProviders.includes(code as ProviderCode) ? code as ProviderCode : null
 }
 
+function normalizeOAuthErrorMessage(errorCode: string, errorDescription: string) {
+  if (errorDescription) return errorDescription
+  if (errorCode) return `OAuth error: ${errorCode}`
+  return "OAuth failed"
+}
+
 watch(
-  () => [route.query.code, route.query.provider, route.params.provider, route.query.state, connections.value.length],
-  async ([codeValue, providerQueryValue, providerParamValue, stateValue]) => {
+  () => [
+    route.query.code,
+    route.query.error,
+    route.query.error_description,
+    route.query.provider,
+    route.params.provider,
+    route.query.state,
+    route.query.scopes,
+    connections.value.length,
+  ],
+  async ([codeValue, errorCodeValue, errorDescriptionValue, providerQueryValue, providerParamValue, stateValue, scopesValue]) => {
     const validProviders: ProviderCode[] = ["facebook", "instagram", "linkedin", "tiktok", "youtube", "pinterest"]
     const routeProvider =
       (validProviders.includes(providerQueryValue as ProviderCode) ? providerQueryValue as ProviderCode : null)
@@ -220,6 +235,26 @@ watch(
       routeProvider
       || (typeof stateValue === "string" ? providerFromConnections(stateValue) : null)
       || storedOAuthProvider()
+    if (import.meta.client && resolvedProvider === "tiktok" && (codeValue || errorCodeValue)) {
+      console.info("TikTok OAuth callback", {
+        code: codeValue,
+        error: errorCodeValue,
+        error_description: errorDescriptionValue,
+        scopes: scopesValue,
+        state: stateValue,
+      })
+    }
+    if (typeof errorCodeValue === "string" && errorCodeValue) {
+      error.value = normalizeOAuthErrorMessage(
+        errorCodeValue,
+        typeof errorDescriptionValue === "string" ? errorDescriptionValue : "",
+      )
+      callbackLock.value = ""
+      clearOAuthContext()
+      step.value = "idle"
+      await router.replace({ query: {} })
+      return
+    }
     if (typeof codeValue === "string" && codeValue && resolvedProvider) {
       const lockKey = `${resolvedProvider}:${codeValue}`
       if (callbackLock.value === lockKey) {
@@ -523,27 +558,30 @@ async function handleCallback(providerCode: ProviderCode, code: string) {
       {
         method: "POST",
         body: { code, redirect_uri: callbackUrlFor(providerCode) },
-        timeout: providerCode === "tiktok" ? 30000 : 8000,
+        timeout: providerCode === "tiktok" ? 120000 : 8000,
       }
     )
     availableAccounts.value = result.accounts
     if (providerCode === "tiktok" && result.accounts.length === 1) {
-      await apiFetch(`/connections/${providerCode}/connect-account/`, {
-        method: "POST",
-        body: { external_id: result.accounts[0].external_id },
-      })
-      await refreshAccounts()
-      await refreshNuxtData("sidebar-accounts")
-      await refreshConnections()
       clearOAuthContext()
       resetFlow()
+      await returnToSettingsHome()
+      await Promise.allSettled([
+        refreshAccounts(),
+        refreshNuxtData("sidebar-accounts"),
+        refreshConnections(),
+      ])
       return
     }
     step.value = "selecting"
     await refreshConnections()
     clearOAuthContext()
   } catch (e: any) {
-    error.value = extractApiError(e, "OAuth failed")
+    if (providerCode === "tiktok" && (e?.name === "TimeoutError" || `${e?.message || ""}`.includes("timeout"))) {
+      error.value = "TikTok sandbox is taking too long to respond. Wait a moment and try the connection again."
+    } else {
+      error.value = extractApiError(e, "OAuth failed")
+    }
     step.value = "idle"
   } finally {
     callbackLock.value = ""
@@ -558,6 +596,7 @@ async function connectAccount(account: OAuthPage) {
     await apiFetch(`/connections/${flowProvider.value}/connect-account/`, {
       method: "POST",
       body: { external_id: account.external_id },
+      timeout: flowProvider.value === "tiktok" ? 120000 : 8000,
     })
     await refreshAccounts()
     await refreshNuxtData("sidebar-accounts")
@@ -565,7 +604,10 @@ async function connectAccount(account: OAuthPage) {
     // Auto-close flow if all available accounts are now connected
     const allConnected = availableAccounts.value.every((a) => flowConnectedIds.value.has(a.external_id))
     if (allConnected) {
-      setTimeout(() => resetFlow(), 600)
+      setTimeout(() => {
+        resetFlow()
+        returnToSettingsHome()
+      }, 600)
     }
   } catch (e: any) {
     error.value = extractApiError(e, "Failed to connect page")
@@ -604,6 +646,12 @@ function resetFlow() {
   flowProvider.value = null
   availableAccounts.value = []
   error.value = ""
+}
+
+async function returnToSettingsHome() {
+  if (route.path !== "/app/settings") {
+    await router.replace({ path: "/app/settings", query: {} })
+  }
 }
 
 function openProviderModal() {
@@ -659,8 +707,13 @@ async function selectProvider(option: ProviderOption) {
 <p v-if="error" class="settings-error">{{ error }}</p>
 
         <div v-if="step === 'authorizing'" class="flow-panel">
-          <strong>Authorizing {{ flowProviderLabel }}</strong>
-          <span>Waiting for OAuth callback and token exchange.</span>
+          <div class="flow-loading">
+            <span class="flow-spinner" aria-hidden="true" />
+            <div class="flow-loading-copy">
+              <strong>Authorizing {{ flowProviderLabel }}</strong>
+              <span>Waiting for OAuth callback and token exchange.</span>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="step === 'selecting'" class="flow-stack">
@@ -677,6 +730,8 @@ async function selectProvider(option: ProviderOption) {
                   ? "Make sure the Instagram account is Professional and the app has the required Instagram scopes."
                   : flowProvider === "linkedin"
                     ? "Make sure the LinkedIn account has granted the required permissions."
+                    : flowProvider === "tiktok"
+                      ? "Make sure the TikTok account is added as a sandbox target user and granted the requested scopes."
                     : "Make sure the login you used has access to at least one Facebook Page."
               }}
             </span>
@@ -1142,6 +1197,33 @@ async function selectProvider(option: ProviderOption) {
   display: grid;
   gap: 6px;
   padding: 16px;
+}
+
+.flow-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.flow-loading-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.flow-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.14);
+  border-top-color: #111827;
+  flex: 0 0 auto;
+  animation: settings-spin 0.9s linear infinite;
+}
+
+@keyframes settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .flow-stack,

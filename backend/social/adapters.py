@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import socket
 import time
 from typing import Any
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -1309,6 +1310,10 @@ class TikTokAdapter(ProviderAdapter):
     AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
     TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
     API_BASE = "https://open.tiktokapis.com/v2"
+    REQUEST_TIMEOUT = 60
+    RETRYABLE_REQUEST_ATTEMPTS = 2
+    RETRYABLE_REQUEST_DELAY = 1.0
+    USER_AGENT = "Schedra/1.0 (+https://schedra.net)"
 
     @property
     def _settings(self) -> SocialProviderSettings:
@@ -1373,6 +1378,35 @@ class TikTokAdapter(ProviderAdapter):
                     return msg
         return f"TikTok HTTP {exc.code}: {exc.reason}"
 
+    def _network_error_message(self, exc: Exception) -> str:
+        detail = str(exc) or exc.__class__.__name__
+        return f"Could not reach TikTok API from the local backend. {detail}"
+
+    def _is_retryable_network_error(self, exc: Exception) -> bool:
+        if isinstance(exc, socket.timeout):
+            return True
+        if isinstance(exc, TimeoutError):
+            return True
+        if isinstance(exc, URLError):
+            reason = getattr(exc, "reason", None)
+            if isinstance(reason, (socket.timeout, TimeoutError)):
+                return True
+        detail = str(getattr(exc, "reason", exc) or "").lower()
+        return "timed out" in detail
+
+    def _urlopen(self, request: Request):
+        last_exc: Exception | None = None
+        for attempt in range(1, self.RETRYABLE_REQUEST_ATTEMPTS + 1):
+            try:
+                return urlopen(request, timeout=self.REQUEST_TIMEOUT)
+            except (URLError, TimeoutError, socket.timeout) as exc:
+                last_exc = exc
+                if attempt >= self.RETRYABLE_REQUEST_ATTEMPTS or not self._is_retryable_network_error(exc):
+                    raise
+                time.sleep(self.RETRYABLE_REQUEST_DELAY)
+        if last_exc:
+            raise last_exc
+
     def _api(
         self,
         path: str,
@@ -1387,6 +1421,7 @@ class TikTokAdapter(ProviderAdapter):
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
+            "User-Agent": self.USER_AGENT,
         }
         payload = None
         if data is not None:
@@ -1394,11 +1429,13 @@ class TikTokAdapter(ProviderAdapter):
             headers["Content-Type"] = "application/json; charset=UTF-8"
         request = Request(url, data=payload, method=method, headers=headers)
         try:
-            with urlopen(request) as response:
+            with self._urlopen(request) as response:
                 body = response.read().decode("utf-8")
                 result = json.loads(body) if body else {}
         except HTTPError as exc:
             raise ValueError(self._http_error_message(exc)) from exc
+        except (URLError, TimeoutError, socket.timeout) as exc:
+            raise ValueError(self._network_error_message(exc)) from exc
         error = result.get("error", {})
         if isinstance(error, dict) and error.get("code") not in (None, "ok", ""):
             raise ValueError(error.get("message") or f"TikTok error: {error.get('code')}")
@@ -1424,13 +1461,16 @@ class TikTokAdapter(ProviderAdapter):
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Accept": "application/json",
+                "User-Agent": self.USER_AGENT,
             },
         )
         try:
-            with urlopen(request) as response:
+            with self._urlopen(request) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             raise ValueError(self._http_error_message(exc)) from exc
+        except (URLError, TimeoutError, socket.timeout) as exc:
+            raise ValueError(self._network_error_message(exc)) from exc
         # TikTok may wrap in {"data": {...}} or return flat
         data_obj = payload.get("data", payload)
         error_obj = payload.get("error", {})
@@ -1453,10 +1493,13 @@ class TikTokAdapter(ProviderAdapter):
         if not self.is_configured:
             raise ValueError("TikTok is not configured.")
         token = decrypt_value(access_token)
+        fields = ["open_id", "union_id", "display_name", "avatar_url"]
+        if "user.info.profile" in self.scopes:
+            fields.append("profile_deep_link")
         result = self._api(
             "/user/info/",
             token,
-            params={"fields": "open_id,union_id,display_name,avatar_url,profile_deep_link"},
+            params={"fields": ",".join(fields)},
         )
         user = (result.get("data") or {}).get("user") or {}
         open_id = user.get("open_id", "")

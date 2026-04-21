@@ -111,6 +111,42 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
     def _adapter_error_response(self, exc: Exception):
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+    def _upsert_account_from_payload(self, request, provider, connection, account_payload: dict) -> SocialAccount:
+        metadata = {**account_payload["metadata"]}
+        if metadata.get("page_access_token"):
+            metadata["page_access_token"] = encrypt_value(metadata["page_access_token"])
+        if metadata.get("access_token"):
+            metadata["access_token"] = encrypt_value(metadata["access_token"])
+        # Propagate refresh_token from connection so adapters can refresh expired tokens
+        if connection.refresh_token and not metadata.get("refresh_token"):
+            metadata["refresh_token"] = connection.refresh_token  # already encrypted
+        defaults = {
+            "connection": connection,
+            "provider": provider,
+            "account_type": account_payload["account_type"],
+            "display_name": account_payload["display_name"],
+            "timezone": account_payload["timezone"],
+            "metadata": metadata,
+        }
+        account = SocialAccount.objects.filter(
+            workspace=request.user.workspace,
+            provider=provider,
+            external_id=account_payload["external_id"],
+            account_type=account_payload["account_type"],
+        ).first()
+        if account:
+            for field, value in defaults.items():
+                setattr(account, field, value)
+            account.save()
+        else:
+            account = SocialAccount.objects.create(
+                workspace=request.user.workspace,
+                external_id=account_payload["external_id"],
+                **defaults,
+            )
+        ensure_default_queue_slots(account)
+        return account
+
     def _start_connection(self, request, provider_code: str):
         serializer = OAuthStartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -158,7 +194,14 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
             accounts = adapter.list_accounts(connection.access_token)
         except Exception as exc:
             return self._adapter_error_response(exc)
-        return Response({"connection": SocialConnectionSerializer(connection).data, "accounts": accounts})
+        response_payload = {
+            "connection": SocialConnectionSerializer(connection).data,
+            "accounts": accounts,
+        }
+        if provider.code == SocialProviderCode.TIKTOK and len(accounts) == 1:
+            account = self._upsert_account_from_payload(request, provider, connection, accounts[0])
+            response_payload["connected_account"] = SocialAccountSerializer(account).data
+        return Response(response_payload)
 
     def _connect_account(self, request, provider_code: str):
         serializer = ConnectAccountSerializer(data=request.data)
@@ -178,39 +221,7 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
             return self._adapter_error_response(exc)
         if not account_payload:
             return Response({"detail": f"{provider.name} account not found."}, status=status.HTTP_404_NOT_FOUND)
-        metadata = {**account_payload["metadata"]}
-        if metadata.get("page_access_token"):
-            metadata["page_access_token"] = encrypt_value(metadata["page_access_token"])
-        if metadata.get("access_token"):
-            metadata["access_token"] = encrypt_value(metadata["access_token"])
-        # Propagate refresh_token from connection so adapters can refresh expired tokens
-        if connection.refresh_token and not metadata.get("refresh_token"):
-            metadata["refresh_token"] = connection.refresh_token  # already encrypted
-        defaults = {
-            "connection": connection,
-            "provider": provider,
-            "account_type": account_payload["account_type"],
-            "display_name": account_payload["display_name"],
-            "timezone": account_payload["timezone"],
-            "metadata": metadata,
-        }
-        account = SocialAccount.objects.filter(
-            workspace=request.user.workspace,
-            provider=provider,
-            external_id=account_payload["external_id"],
-            account_type=account_payload["account_type"],
-        ).first()
-        if account:
-            for field, value in defaults.items():
-                setattr(account, field, value)
-            account.save()
-        else:
-            account = SocialAccount.objects.create(
-                workspace=request.user.workspace,
-                external_id=account_payload["external_id"],
-                **defaults,
-            )
-        ensure_default_queue_slots(account)
+        account = self._upsert_account_from_payload(request, provider, connection, account_payload)
         return Response(SocialAccountSerializer(account).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="facebook/start")
