@@ -12,7 +12,7 @@ def delete_media_asset_file(asset: MediaAsset) -> None:
     storage_key = asset.storage_key or (asset.file.name if asset.file else "")
     if not storage_key:
         return
-    get_backend_by_id(asset.storage_backend).delete(storage_key)
+    get_backend_by_id(asset.storage_backend).delete(storage_key, content_type=asset.content_type)
 
 
 def _normalize_ids(values: Iterable | None) -> set[str]:

@@ -28,12 +28,12 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
-    def delete(self, storage_key: str) -> None:
+    def delete(self, storage_key: str, content_type: str = "") -> None:
         """Delete a file by its storage key."""
         ...
 
     @abstractmethod
-    def get_url(self, storage_key: str) -> str:
+    def get_url(self, storage_key: str, content_type: str = "") -> str:
         """Return the public URL for a storage key."""
         ...
 
@@ -46,12 +46,12 @@ class LocalStorageBackend(StorageBackend):
     def upload(self, file_obj, filename: str, content_type: str) -> UploadResult:
         raise NotImplementedError("Local backend delegates to Django ImageField — use the serializer directly.")
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, storage_key: str, content_type: str = "") -> None:
         from django.core.files.storage import default_storage
         if default_storage.exists(storage_key):
             default_storage.delete(storage_key)
 
-    def get_url(self, storage_key: str) -> str:
+    def get_url(self, storage_key: str, content_type: str = "") -> str:
         from django.core.files.storage import default_storage
         return default_storage.url(storage_key)
 
@@ -75,6 +75,11 @@ class CloudinaryBackend(StorageBackend):
     @property
     def is_configured(self) -> bool:
         return bool(self.cloud_name and self.api_key and self.api_secret)
+
+    def _resource_type(self, content_type: str) -> str:
+        if (content_type or "").startswith("video/"):
+            return "video"
+        return "image"
 
     def _sign(self, params: dict) -> str:
         pairs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
@@ -117,7 +122,8 @@ class CloudinaryBackend(StorageBackend):
         file_data = file_obj.read() if hasattr(file_obj, "read") else file_obj
         body, content_type_header = self._multipart_body(fields, file_data, filename, content_type)
 
-        url = f"{self._api_base}/{self.cloud_name}/image/upload"
+        resource_type = self._resource_type(content_type)
+        url = f"{self._api_base}/{self.cloud_name}/{resource_type}/upload"
         req = Request(url, data=body, method="POST")
         req.add_header("Content-Type", content_type_header)
 
@@ -137,7 +143,7 @@ class CloudinaryBackend(StorageBackend):
             metadata={"width": result.get("width"), "height": result.get("height"), "format": result.get("format")},
         )
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, storage_key: str, content_type: str = "") -> None:
         if not self.is_configured:
             return
         ts = int(time.time())
@@ -150,7 +156,8 @@ class CloudinaryBackend(StorageBackend):
             "public_id": storage_key,
         }
         body, ct = self._multipart_body(fields, b"", "", "")
-        url = f"{self._api_base}/{self.cloud_name}/image/destroy"
+        resource_type = self._resource_type(content_type)
+        url = f"{self._api_base}/{self.cloud_name}/{resource_type}/destroy"
         req = Request(url, data=body, method="POST")
         req.add_header("Content-Type", ct)
         try:
@@ -158,8 +165,9 @@ class CloudinaryBackend(StorageBackend):
         except Exception:
             pass
 
-    def get_url(self, storage_key: str) -> str:
-        return f"https://res.cloudinary.com/{self.cloud_name}/image/upload/{storage_key}"
+    def get_url(self, storage_key: str, content_type: str = "") -> str:
+        resource_type = self._resource_type(content_type)
+        return f"https://res.cloudinary.com/{self.cloud_name}/{resource_type}/upload/{storage_key}"
 
 
 class S3StorageBackend(StorageBackend):
@@ -225,7 +233,7 @@ class S3StorageBackend(StorageBackend):
             metadata={},
         )
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, storage_key: str, content_type: str = "") -> None:
         if not self.is_configured:
             return
         try:
@@ -233,7 +241,7 @@ class S3StorageBackend(StorageBackend):
         except Exception:
             pass
 
-    def get_url(self, storage_key: str) -> str:
+    def get_url(self, storage_key: str, content_type: str = "") -> str:
         if not self.bucket or not self.region:
             return ""
         if self.public_base_url:
@@ -323,3 +331,7 @@ def get_backend_by_id(backend_id: str) -> StorageBackend:
             secret_access_key="",
         )
     return LocalStorageBackend()
+    def _resource_type(self, content_type: str) -> str:
+        if (content_type or "").startswith("video/"):
+            return "video"
+        return "image"

@@ -254,7 +254,7 @@ class PublishingFlowTests(APITestCase):
         self.assertEqual(delete_response.status_code, 204)
         self.assertFalse(Post.objects.filter(id=response.data["id"]).exists())
         self.assertFalse(MediaAsset.objects.filter(id=self.asset1.id).exists())
-        backend.delete.assert_called_once_with("demo/one")
+        backend.delete.assert_called_once_with("demo/one", content_type="image/jpeg")
 
     @patch("media_library.cleanup.get_backend_by_id")
     def test_delete_post_keeps_shared_media_asset(self, mocked_get_backend):

@@ -37,7 +37,7 @@ class MediaAsset(BaseModel):
         if self.storage_backend in ("cloudinary", "s3"):
             from .storage import get_backend_by_id
 
-            return get_backend_by_id(self.storage_backend).get_url(self.storage_key)
+            return get_backend_by_id(self.storage_backend).get_url(self.storage_key, content_type=self.content_type)
         # local
         if self.file:
             if request:
