@@ -520,7 +520,11 @@ async function handleCallback(providerCode: ProviderCode, code: string) {
   try {
     const result = await apiFetch<{ connection: SocialConnection; accounts: OAuthPage[] }>(
       `/connections/${providerCode}/callback/`,
-      { method: "POST", body: { code, redirect_uri: callbackUrlFor(providerCode) } }
+      {
+        method: "POST",
+        body: { code, redirect_uri: callbackUrlFor(providerCode) },
+        timeout: providerCode === "tiktok" ? 30000 : 8000,
+      }
     )
     availableAccounts.value = result.accounts
     if (providerCode === "tiktok" && result.accounts.length === 1) {
@@ -759,7 +763,7 @@ async function selectProvider(option: ProviderOption) {
 
           <div v-if="!accounts.length" class="empty-state compact">
             <strong>No connected channels yet</strong>
-            <p>Connect Facebook or Instagram, then choose the channels you want available for publishing.</p>
+            <p>Connect a channel, then choose the accounts you want available for publishing in this workspace.</p>
           </div>
 
           <div v-else class="channels-list">
