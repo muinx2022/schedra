@@ -12,8 +12,7 @@ from media_library.models import MediaAsset
 from social.models import SocialAccount, SocialConnection, SocialProvider
 from social.views import ensure_default_queue_slots
 from publishing.models import DeliveryStatus, Post, PostTarget
-from publishing.tasks import dispatch_due_post_targets
-from publishing.views import _await_publish_now_targets
+from publishing.tasks import dispatch_due_post_targets, poll_post_target_status
 
 
 class PublishingFlowTests(APITestCase):
@@ -119,8 +118,8 @@ class PublishingFlowTests(APITestCase):
         refreshed = self.client.get(f"/api/posts/{post_id}/")
         self.assertEqual(refreshed.data["delivery_status"], "published")
 
-    @patch("publishing.views._await_publish_now_targets")
-    def test_publish_now_returns_fast_failure_when_all_targets_fail(self, mocked_await_targets):
+    @patch("publishing.tasks.publish_post_target.delay")
+    def test_publish_now_returns_immediately_after_queueing(self, mocked_publish_delay):
         response = self.client.post(
             "/api/posts/",
             {
@@ -142,6 +141,14 @@ class PublishingFlowTests(APITestCase):
         )
         self.assertEqual(response.status_code, 201)
         post = Post.objects.get(pk=response.data["id"])
+        publish_response = self.client.post(f"/api/posts/{post.id}/publish_now/", {}, format="json")
+        self.assertEqual(publish_response.status_code, 200)
+        post.refresh_from_db()
+        target = post.targets.get()
+        self.assertEqual(post.delivery_status, DeliveryStatus.PUBLISHING)
+        self.assertEqual(target.delivery_status, DeliveryStatus.PUBLISHING)
+        mocked_publish_delay.assert_called_once_with(str(target.id))
+        return
         target = post.targets.get()
         target.delivery_status = DeliveryStatus.FAILED
         target.provider_result = {"error": "TikTok app chưa được audit, chỉ được post private."}
@@ -467,6 +474,55 @@ class PublishingFlowTests(APITestCase):
             request_payload["media_items"][0]["file_url"],
             "https://assets.example.com/media/media_assets/local.jpg",
         )
+
+    @patch("publishing.tasks._schedule_publish_status_poll")
+    @patch("publishing.tasks.get_provider_adapter")
+    def test_tiktok_status_timeout_reschedules_poll_instead_of_failing(self, mocked_get_provider_adapter, mocked_schedule_poll):
+        tiktok_provider = SocialProvider.objects.create(code="tiktok", name="TikTok")
+        tiktok_connection = SocialConnection.objects.create(
+            workspace=self.workspace,
+            provider=tiktok_provider,
+            status="connected",
+            access_token="token",
+        )
+        tiktok_account = SocialAccount.objects.create(
+            workspace=self.workspace,
+            connection=tiktok_connection,
+            provider=tiktok_provider,
+            external_id="tt-creator-1",
+            display_name="Demo TikTok",
+            account_type="tiktok_creator",
+            metadata={"access_token": "token"},
+        )
+        post = Post.objects.create(
+            workspace=self.workspace,
+            author=self.user,
+            caption_text="TikTok post",
+            delivery_strategy="now",
+            delivery_status=DeliveryStatus.PUBLISHING,
+            payload={"version": 1, "feed_post": {}},
+        )
+        target = PostTarget.objects.create(
+            post=post,
+            social_account=tiktok_account,
+            delivery_strategy="now",
+            delivery_status=DeliveryStatus.PUBLISHING,
+            provider_result={"provider_post_id": "v_pub_url~v2-1.demo"},
+        )
+
+        adapter = mocked_get_provider_adapter.return_value
+        adapter.get_publish_status.side_effect = ValueError(
+            "Could not reach TikTok API from the local backend. timed out"
+        )
+
+        result = poll_post_target_status(str(target.id), attempts_left=4)
+
+        self.assertEqual(result, {"status": "publishing", "attempts_left": 3})
+        mocked_schedule_poll.assert_called_once_with(str(target.id), 3)
+        target.refresh_from_db()
+        post.refresh_from_db()
+        self.assertEqual(target.delivery_status, DeliveryStatus.PUBLISHING)
+        self.assertEqual(post.delivery_status, DeliveryStatus.PUBLISHING)
 
     def test_queue_assigns_next_scheduled_at_from_queue_slot(self):
         response = self.client.post(

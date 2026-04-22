@@ -24,27 +24,48 @@ def _has_references_outside(
     ignored_post_ids: set[str],
     ignored_campaign_ids: set[str],
 ) -> bool:
+    return get_media_asset_reference_summary(
+        asset,
+        ignored_post_ids=ignored_post_ids,
+        ignored_campaign_ids=ignored_campaign_ids,
+    )["total"] > 0
+
+
+def get_media_asset_reference_summary(
+    asset: MediaAsset,
+    *,
+    ignored_post_ids: Iterable | None = None,
+    ignored_campaign_ids: Iterable | None = None,
+) -> dict[str, int]:
     from campaigns.models import Campaign, CampaignMediaItem
     from publishing.models import PostMedia
+
+    ignored_post_ids = _normalize_ids(ignored_post_ids)
+    ignored_campaign_ids = _normalize_ids(ignored_campaign_ids)
 
     post_media: QuerySet = PostMedia.objects.filter(media_asset=asset)
     if ignored_post_ids:
         post_media = post_media.exclude(post_id__in=ignored_post_ids)
     for campaign_id in ignored_campaign_ids:
         post_media = post_media.exclude(metadata__source_campaign_id=campaign_id)
-    if post_media.exists():
-        return True
+    post_count = post_media.count()
 
     campaign_items: QuerySet = CampaignMediaItem.objects.filter(media_asset=asset)
     if ignored_campaign_ids:
         campaign_items = campaign_items.exclude(campaign_id__in=ignored_campaign_ids)
-    if campaign_items.exists():
-        return True
+    campaign_item_count = campaign_items.count()
 
     source_video_campaigns: QuerySet = Campaign.objects.filter(source_video=asset)
     if ignored_campaign_ids:
         source_video_campaigns = source_video_campaigns.exclude(id__in=ignored_campaign_ids)
-    return source_video_campaigns.exists()
+    source_video_campaign_count = source_video_campaigns.count()
+
+    return {
+        "post_count": post_count,
+        "campaign_item_count": campaign_item_count,
+        "source_video_campaign_count": source_video_campaign_count,
+        "total": post_count + campaign_item_count + source_video_campaign_count,
+    }
 
 
 def delete_media_assets_if_unreferenced(

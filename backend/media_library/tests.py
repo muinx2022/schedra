@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import Workspace
 from back_office.models import MediaUploadSettings
+from publishing.models import Post, PostMedia
 
 from .models import MediaAsset
 from .storage import CloudinaryBackend
@@ -110,6 +111,58 @@ class MediaLibraryUploadTests(TestCase):
         asset = MediaAsset.objects.get(pk=response.data["id"])
         self.assertEqual(asset.storage_backend, "local")
         self.assertTrue(asset.storage_key.startswith("media_assets/"))
+
+    @patch("media_library.views.delete_media_asset_file")
+    def test_delete_endpoint_deletes_unreferenced_asset_and_storage_file(self, mocked_delete_file):
+        asset = MediaAsset.objects.create(
+            workspace=self.workspace,
+            uploaded_by=self.user,
+            title="Local",
+            file="media_assets/local.jpg",
+            storage_backend="local",
+            storage_key="media_assets/local.jpg",
+            file_name="local.jpg",
+            content_type="image/jpeg",
+            size_bytes=789,
+        )
+
+        response = self.client.delete(f"/api/media/{asset.id}/")
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(MediaAsset.objects.filter(pk=asset.id).exists())
+        mocked_delete_file.assert_called_once()
+
+    @patch("media_library.views.delete_media_asset_file")
+    def test_delete_endpoint_rejects_asset_still_used_by_post(self, mocked_delete_file):
+        asset = MediaAsset.objects.create(
+            workspace=self.workspace,
+            uploaded_by=self.user,
+            title="Local",
+            file="media_assets/local.jpg",
+            storage_backend="local",
+            storage_key="media_assets/local.jpg",
+            file_name="local.jpg",
+            content_type="image/jpeg",
+            size_bytes=789,
+        )
+        post = Post.objects.create(
+            workspace=self.workspace,
+            author=self.user,
+            caption_text="Draft",
+            payload={"version": 1, "feed_post": {}},
+        )
+        PostMedia.objects.create(post=post, media_asset=asset, kind="image", role="primary", order_index=0)
+
+        response = self.client.delete(f"/api/media/{asset.id}/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["detail"],
+            "This media asset is still used by posts or campaigns. Remove those references before deleting it.",
+        )
+        self.assertEqual(response.data["references"]["post_count"], 1)
+        self.assertTrue(MediaAsset.objects.filter(pk=asset.id).exists())
+        mocked_delete_file.assert_not_called()
 
     def test_upload_endpoint_rejects_svg_disguised_as_png(self):
         upload = BytesIO(b'<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"></svg>')

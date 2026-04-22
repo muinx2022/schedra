@@ -16,6 +16,13 @@ PUBLISH_STATUS_POLL_ATTEMPTS = 8
 PUBLISH_STATUS_POLL_DELAY_SECONDS = 3
 
 
+def _is_transient_publish_status_error(post_target: PostTarget, exc: Exception) -> bool:
+    provider_code = (post_target.social_account.provider.code or "").lower()
+    if provider_code != "tiktok":
+        return False
+    return "Could not reach TikTok API from the local backend." in str(exc)
+
+
 def get_next_queue_slot_datetime(queue_slots, *, timezone_name: str, now: datetime | None = None) -> datetime:
     if not queue_slots:
         raise ValueError("No active queue slots.")
@@ -188,6 +195,9 @@ def poll_post_target_status(post_target_id: str, attempts_left: int = PUBLISH_ST
     try:
         response = adapter.get_publish_status(target_account_payload, provider_result)
     except Exception as exc:
+        if attempts_left > 1 and _is_transient_publish_status_error(post_target, exc):
+            _schedule_publish_status_poll(post_target_id, attempts_left - 1)
+            return {"status": "publishing", "attempts_left": attempts_left - 1}
         if attempt is None:
             attempt = PublishAttempt.objects.create(
                 post_target=post_target,

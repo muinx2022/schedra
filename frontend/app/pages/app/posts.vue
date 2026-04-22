@@ -100,6 +100,7 @@ const activeAccount = computed<string>({
 
 const selectedPostId = ref<string | null>(null)
 const showComposer = ref(false)
+const showDiscardComposerConfirm = ref(false)
 const publishingId = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
 const duplicatingId = ref<string | null>(null)
@@ -116,6 +117,9 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const actionMenuOpen = ref(false)
 const pendingActionStrategy = ref<Strategy | null>(null)
 const actionGroupRef = ref<HTMLElement | null>(null)
+const composerInitialFingerprint = ref("")
+const composerDirty = ref(false)
+const composerDirtyTrackingDepth = ref(0)
 
 const toasts = ref<Toast[]>([])
 let toastId = 0
@@ -283,9 +287,9 @@ const tiktokDisclosureLabel = computed(() => {
 })
 const tiktokConsentLabel = computed(() => {
   if (tiktokForm.brand_content_toggle) {
-    return "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation."
+    return "Allow TikTok to publish this content and confirm TikTok's Branded Content Policy and Music Usage Confirmation."
   }
-  return "By posting, you agree to TikTok's Music Usage Confirmation."
+  return "Allow TikTok to publish this content and confirm TikTok's Music Usage Confirmation."
 })
 const tiktokAccountPrivacyWarning = computed(() => {
   if (!tiktokAccountLooksPublic.value) return ""
@@ -301,18 +305,62 @@ const tiktokVideoDurationExceededMessage = computed(() => {
   if (!duration || duration <= limit) return ""
   return `Selected video is ${Math.ceil(duration)}s, but this TikTok account allows at most ${limit}s.`
 })
-const tiktokCreatorLabel = computed(() => {
-  const creator = tiktokOptions.value?.creator
-  if (!creator) return selectedTikTokAccount.value?.display_name || "TikTok Creator"
-  const nickname = creator.nickname?.trim() || selectedTikTokAccount.value?.display_name || "TikTok Creator"
-  const username = creator.username?.trim()
-  return username ? `${nickname} (@${username})` : nickname
-})
 const selectedAccountsLabel = computed(() => {
   if (!selectedAccounts.value.length) return "No channels selected"
   if (selectedAccounts.value.length === 1) return selectedAccounts.value[0].display_name
   return `${selectedAccounts.value.length} channels selected`
 })
+
+function composerStateFingerprint() {
+  return JSON.stringify({
+    caption_text: form.caption_text,
+    social_accounts: form.social_accounts,
+    strategy: form.strategy,
+    post_mode: form.post_mode,
+    scheduled_at: form.scheduled_at,
+    selected_assets: selectedAssets.value.map((asset) => asset.id),
+    tiktok: {
+      privacy_level: tiktokForm.privacy_level,
+      allow_comment: tiktokForm.allow_comment,
+      allow_duet: tiktokForm.allow_duet,
+      allow_stitch: tiktokForm.allow_stitch,
+      commercial_content_enabled: tiktokForm.commercial_content_enabled,
+      brand_organic_toggle: tiktokForm.brand_organic_toggle,
+      brand_content_toggle: tiktokForm.brand_content_toggle,
+      consent_confirmed: tiktokForm.consent_confirmed,
+    },
+  })
+}
+
+function beginComposerProgrammaticUpdate() {
+  composerDirtyTrackingDepth.value += 1
+}
+
+function endComposerProgrammaticUpdate(options?: { markPristine?: boolean }) {
+  nextTick(() => {
+    composerDirtyTrackingDepth.value = Math.max(0, composerDirtyTrackingDepth.value - 1)
+    if (options?.markPristine) {
+      composerInitialFingerprint.value = composerStateFingerprint()
+      composerDirty.value = false
+      return
+    }
+    composerDirty.value = composerStateFingerprint() !== composerInitialFingerprint.value
+  })
+}
+
+function markComposerPristine() {
+  composerInitialFingerprint.value = composerStateFingerprint()
+  composerDirty.value = false
+}
+
+watch(
+  () => composerStateFingerprint(),
+  (fingerprint) => {
+    if (!showComposer.value) return
+    if (composerDirtyTrackingDepth.value > 0) return
+    composerDirty.value = fingerprint !== composerInitialFingerprint.value
+  }
+)
 
 watch(
   selectedAccount,
@@ -508,13 +556,13 @@ function resetTikTokForm() {
   tiktokOptionsError.value = ""
   tiktokOptionsAccountId.value = ""
   tiktokForm.privacy_level = ""
-  tiktokForm.allow_comment = false
+  tiktokForm.allow_comment = true
   tiktokForm.allow_duet = false
   tiktokForm.allow_stitch = false
   tiktokForm.commercial_content_enabled = false
   tiktokForm.brand_organic_toggle = false
   tiktokForm.brand_content_toggle = false
-  tiktokForm.consent_confirmed = false
+  tiktokForm.consent_confirmed = true
 }
 
 async function readVideoDuration(url: string): Promise<number | null> {
@@ -569,6 +617,27 @@ function applyTikTokOverride(override?: Record<string, any> | null) {
   tiktokForm.consent_confirmed = Boolean(override?.consent_confirmed)
 }
 
+function defaultTikTokPrivacyOption(options: string[]) {
+  if (!options.length) return ""
+  const preferredOrder = import.meta.dev
+    ? [
+        "SELF_ONLY",
+        "FOLLOWER_OF_CREATOR",
+        "MUTUAL_FOLLOW_FRIENDS",
+        "PUBLIC_TO_EVERYONE",
+      ]
+    : [
+        "PUBLIC_TO_EVERYONE",
+        "FOLLOWER_OF_CREATOR",
+        "MUTUAL_FOLLOW_FRIENDS",
+        "SELF_ONLY",
+      ]
+  for (const option of preferredOrder) {
+    if (options.includes(option)) return option
+  }
+  return options[0] || ""
+}
+
 async function loadTikTokPublishOptions(accountId: string) {
   if (!accountId) return
   if (tiktokOptionsLoading.value && tiktokOptionsAccountId.value === accountId) return
@@ -581,13 +650,16 @@ async function loadTikTokPublishOptions(accountId: string) {
   try {
     const payload = await apiFetch<TikTokPublishOptions>(`/accounts/${accountId}/publish-options/`, { timeout: 30000 })
     if (requestId !== tiktokOptionsRequestId) return
+    const shouldRefreshPristineState = !composerDirty.value
+    beginComposerProgrammaticUpdate()
     tiktokOptions.value = payload
     if (!tiktokPrivacyOptions.value.includes(tiktokForm.privacy_level)) {
-      tiktokForm.privacy_level = ""
+      tiktokForm.privacy_level = defaultTikTokPrivacyOption(payload.privacy_level_options || [])
     }
     if (payload.comment_disabled) tiktokForm.allow_comment = false
     if (payload.duet_disabled) tiktokForm.allow_duet = false
     if (payload.stitch_disabled) tiktokForm.allow_stitch = false
+    endComposerProgrammaticUpdate({ markPristine: shouldRefreshPristineState })
   } catch (e: any) {
     if (requestId !== tiktokOptionsRequestId) return
     tiktokOptions.value = null
@@ -610,27 +682,6 @@ function tiktokPrivacyLabel(value: string) {
     SELF_ONLY: "Only me",
   }
   return labels[value] || value
-}
-
-async function waitForPostTerminalState(postId: string, timeoutMs = 45000, intervalMs = 2000) {
-  const startedAt = Date.now()
-  while (Date.now() - startedAt < timeoutMs) {
-    await refreshPosts()
-    const post = posts.value.find((item) => item.id === postId) || null
-    if (!post) return null
-    if (["published", "failed", "canceled"].includes(post.delivery_status)) {
-      return post
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs))
-  }
-  await refreshPosts()
-  return posts.value.find((item) => item.id === postId) || null
-}
-
-async function waitForPublishOutcome(postIds: string[]) {
-  if (!postIds.length) return []
-  const results = await Promise.all(postIds.map((id) => waitForPostTerminalState(id)))
-  return results.filter(Boolean) as Post[]
 }
 
 function publishingPendingMessage(postsToCheck: Post[]) {
@@ -719,6 +770,19 @@ function toggleSelectedAccount(accountId: string) {
   form.social_accounts = [...form.social_accounts, accountId]
 }
 
+const channelSearch = ref("")
+
+const filteredChannels = computed(() => {
+  const query = channelSearch.value.trim().toLowerCase()
+  if (!query) return accounts.value ?? []
+
+  return (accounts.value ?? []).filter((acc) =>
+    [acc.display_name, acc.channel_name, acc.provider_name, accountDescriptor(acc)]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(query))
+  )
+})
+
 function platformName(code: string) {
   const names: Record<string, string> = {
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
@@ -740,7 +804,6 @@ const groupedChannels = computed(() => {
 const groupSelectAll = reactive<Record<string, boolean>>({})
 const groupModal = ref({ open: false, platform: "", search: "" })
 const groupModalSelected = ref<string[]>([])
-const channelSearch = ref("")
 
 const filteredGroupedChannels = computed(() => {
   const query = channelSearch.value.trim().toLowerCase()
@@ -898,6 +961,7 @@ function tiktokPublishValidationError(strategy: Strategy): string | null {
 }
 
 function resetComposer(strategy: Strategy = "draft") {
+  beginComposerProgrammaticUpdate()
   selectedPostId.value = null
   form.caption_text = ""
   form.strategy = strategy
@@ -909,6 +973,8 @@ function resetComposer(strategy: Strategy = "draft") {
   pendingActionStrategy.value = null
   publishPendingNotice.value = ""
   error.value = ""
+  showDiscardComposerConfirm.value = false
+  endComposerProgrammaticUpdate({ markPristine: true })
 }
 
 function startNewPost(strategy: Strategy = "draft") {
@@ -919,6 +985,7 @@ function startNewPost(strategy: Strategy = "draft") {
 }
 
 function editPost(post: Post) {
+  beginComposerProgrammaticUpdate()
   selectedPostId.value = post.id
   showComposer.value = true
   actionMenuOpen.value = false
@@ -952,13 +1019,34 @@ function editPost(post: Post) {
   }
   publishPendingNotice.value = ""
   error.value = ""
+  showDiscardComposerConfirm.value = false
+  endComposerProgrammaticUpdate({ markPristine: true })
 }
 
 function closeComposer() {
   showComposer.value = false
+  showDiscardComposerConfirm.value = false
   actionMenuOpen.value = false
   resetComposer()
   router.replace({ query: { ...route.query, post: undefined } })
+}
+
+function requestCloseComposer() {
+  actionMenuOpen.value = false
+  if (saving.value) return
+  if (!composerDirty.value) {
+    closeComposer()
+    return
+  }
+  showDiscardComposerConfirm.value = true
+}
+
+function keepEditingComposer() {
+  showDiscardComposerConfirm.value = false
+}
+
+function discardComposerChanges() {
+  closeComposer()
 }
 
 function normalizePostAssets(post: Post): MediaAsset[] {
@@ -1183,17 +1271,29 @@ async function persistPostForAccount(strategy: Strategy, accountId: string | nul
   })
 }
 
-async function dispatchPost(post: Post, strategy: Strategy) {
+function mergePosts(nextPosts: Post[]) {
+  const byId = new Map(posts.value.map((post) => [post.id, post]))
+  for (const post of nextPosts) {
+    byId.set(post.id, post)
+  }
+  posts.value = [...byId.values()].sort(
+    (left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime()
+  )
+}
+
+async function dispatchPost(post: Post, strategy: Strategy): Promise<Post> {
   if (strategy === "publish") {
-    await apiFetch(`/posts/${post.id}/publish_now/`, { method: "POST", body: {} })
+    return await apiFetch<Post>(`/posts/${post.id}/publish_now/`, { method: "POST", body: {} })
   } else if (strategy === "queue") {
-    await apiFetch(`/posts/${post.id}/queue/`, { method: "POST", body: {} })
+    const response = await apiFetch<{ post: Post }>(`/posts/${post.id}/queue/`, { method: "POST", body: {} })
+    return response.post
   } else if (strategy === "schedule") {
-    await apiFetch(`/posts/${post.id}/schedule/`, {
+    return await apiFetch<Post>(`/posts/${post.id}/schedule/`, {
       method: "POST",
       body: { scheduled_at: form.scheduled_at },
     })
   }
+  return post
 }
 
 async function submit(strategy: Strategy) {
@@ -1224,51 +1324,31 @@ async function submit(strategy: Strategy) {
   error.value = ""
   publishPendingNotice.value = ""
   try {
+    let dispatchedPosts: Post[] = []
     let dispatchedPostIds: string[] = []
     let shouldCloseComposer = true
     // Edit mode: update single existing post with first account
     if (selectedPostId.value) {
       const post = await persistPostForAccount(strategy, form.social_accounts[0] || null)
-      await dispatchPost(post, strategy)
-      dispatchedPostIds = [post.id]
+      const dispatchedPost = await dispatchPost(post, strategy)
+      dispatchedPosts = [dispatchedPost]
+      dispatchedPostIds = [dispatchedPost.id]
     } else {
       // New post: one post per account (or one draft if no accounts)
       const accountIds = form.social_accounts.length ? form.social_accounts : [null]
       const createdPosts = await Promise.all(accountIds.map((id) => persistPostForAccount(strategy, id)))
-      await Promise.all(createdPosts.map((post) => dispatchPost(post, strategy)))
-      dispatchedPostIds = createdPosts.map((post) => post.id)
+      dispatchedPosts = await Promise.all(createdPosts.map((post) => dispatchPost(post, strategy)))
+      dispatchedPostIds = dispatchedPosts.map((post) => post.id)
     }
+    mergePosts(dispatchedPosts)
 
     if (strategy === "publish") {
-      const finalPosts = await waitForPublishOutcome(dispatchedPostIds)
-      setPublishTab(finalPosts)
-      const failedPosts = finalPosts.filter((post) => post.delivery_status === "failed")
-      const publishedPosts = finalPosts.filter((post) => post.delivery_status === "published")
-      const publishingPosts = finalPosts.filter((post) => post.delivery_status === "publishing")
-      if (failedPosts.length) {
-        const firstError = postErrorDetail(failedPosts[0]) || "Publishing failed."
-        error.value = firstError
-        shouldCloseComposer = false
-        showToast(firstError, "error")
-      } else if (publishingPosts.length) {
-        publishPendingNotice.value = publishingPendingMessage(finalPosts)
-        shouldCloseComposer = false
-        showToast(
-          publishingPosts.length > 1
-            ? `Waiting for TikTok to confirm ${publishingPosts.length} publishes.`
-            : "Waiting for TikTok to confirm the publish."
-        )
-      } else if (publishedPosts.length === dispatchedPostIds.length && publishedPosts.length > 1) {
-        showToast(`Published to ${publishedPosts.length} channels.`)
-      } else if (publishedPosts.length === 1 && dispatchedPostIds.length === 1) {
-        showToast("Post published.")
-      } else {
-        showToast(
-          dispatchedPostIds.length > 1
-            ? `Publishing started for ${dispatchedPostIds.length} channels.`
-            : "Publishing started."
-        )
-      }
+      activeTab.value = "queue"
+      showToast(
+        dispatchedPostIds.length > 1
+          ? `Queued ${dispatchedPostIds.length} publish tasks. Status is now Running.`
+          : "Publish task queued. Status is now Running."
+      )
     } else if (strategy === "queue") {
       activeTab.value = "queue"
       showToast(form.social_accounts.length > 1 ? `Added to queue for ${form.social_accounts.length} channels.` : "Post added to queue.")
@@ -1280,9 +1360,11 @@ async function submit(strategy: Strategy) {
       showToast(selectedPostId.value ? "Draft updated." : "Draft saved.")
     }
 
-    await refreshPosts()
     if (shouldCloseComposer) {
       closeComposer()
+    }
+    if (strategy !== "publish") {
+      await refreshPosts()
     }
   } catch (e: any) {
     error.value = extractApiError(e, "Failed to save post")
@@ -1302,14 +1384,10 @@ function runNextStep(strategy: Strategy) {
 async function publishNow(postId: string) {
   publishingId.value = postId
   try {
-    await apiFetch(`/posts/${postId}/publish_now/`, { method: "POST", body: {} })
-    const finalPost = await waitForPostTerminalState(postId)
-    setPublishTab(finalPost ? [finalPost] : [])
-    if (finalPost?.delivery_status === "failed") {
-      showToast(publishToastMessage(finalPost, "Publishing failed."), "error")
-    } else {
-      showToast(publishToastMessage(finalPost, "Publishing started."))
-    }
+    const post = await apiFetch<Post>(`/posts/${postId}/publish_now/`, { method: "POST", body: {} })
+    mergePosts([post])
+    activeTab.value = "queue"
+    showToast("Publish task queued. Status is now Running.")
   } catch (e: any) {
     showToast(extractApiError(e, "Failed to publish"), "error")
   } finally {
@@ -1359,11 +1437,15 @@ function statusTone(status: string) {
 function statusLabel(status: string) {
   if (status === "queued") return "Queued"
   if (status === "scheduled") return "Scheduled"
-  if (status === "publishing") return "Publishing"
+  if (status === "publishing") return "Running"
   if (status === "published") return "Published"
   if (status === "failed") return "Failed"
   if (status === "canceled") return "Canceled"
   return "Draft"
+}
+
+function isRunningStatus(status: string) {
+  return status === "publishing"
 }
 
 function shortDateTime(value?: string | null) {
@@ -1485,7 +1567,7 @@ function pageHint() {
           <article v-for="post in group" :key="post.id" class="timeline-row">
             <div class="timeline-time">{{ postTime(post) }}</div>
 
-            <div class="timeline-card" :class="{ active: selectedPostId === post.id }">
+            <div class="timeline-card" :class="{ active: selectedPostId === post.id, running: isRunningStatus(post.delivery_status) }">
               <div class="timeline-card-body" @click="editPost(post)">
                 <div class="timeline-card-main">
                   <div class="post-account-line">
@@ -1495,7 +1577,10 @@ function pageHint() {
                     </div>
                     <div class="post-account-copy">
                       <strong>{{ accountFor(post)?.display_name || "No channel selected" }}</strong>
-                      <span>{{ statusLabel(post.delivery_status) }} · {{ shortDateTime(post.scheduled_at || post.published_at || post.created_at) }}</span>
+                      <span class="post-status-line">
+                        <span v-if="isRunningStatus(post.delivery_status)" class="status-spinner" aria-hidden="true"></span>
+                        <span>{{ statusLabel(post.delivery_status) }} · {{ shortDateTime(post.scheduled_at || post.published_at || post.created_at) }}</span>
+                      </span>
                     </div>
                   </div>
 
@@ -1559,7 +1644,7 @@ function pageHint() {
       </div>
     </section>
 
-    <div v-if="showComposer" class="composer-overlay" @click.self="closeComposer" @dragover.prevent @drop.prevent>
+    <div v-if="showComposer" class="composer-overlay" @click.self="requestCloseComposer" @dragover.prevent @drop.prevent>
       <div class="composer-modal" :class="{ 'has-channels': hasChannels }">
         <aside v-if="hasChannels" class="channel-rail composer-channels">
           <div class="channel-rail-head">
@@ -1578,56 +1663,27 @@ function pageHint() {
           />
 
           <div class="channel-rail-scroll">
-            <div v-for="(groupAccs, platform) in filteredGroupedChannels" :key="platform" class="channel-group">
-              <div class="channel-group-header">
-                <span class="channel-group-label">{{ platformName(String(platform)) }}</span>
-                <span class="channel-group-count">{{ selectedCountForGroup(String(platform)) }} / {{ (groupedChannels[String(platform)] ?? []).length }}</span>
-              </div>
-
-              <div class="channel-group-actions">
-                <button class="channel-group-action" type="button" @click="toggleGroupSelectAll(String(platform), true)">All</button>
-                <button class="channel-group-action" type="button" @click="toggleGroupSelectAll(String(platform), false)">None</button>
-                <button
-                  v-if="groupAccs.length > visibleAccountsForGroup(groupAccs).length"
-                  class="channel-group-action"
-                  type="button"
-                  @click="openGroupModal(String(platform))"
-                >
-                  Manage
-                </button>
-              </div>
-
-              <div class="channel-pill-row vertical">
-                <button
-                  v-for="account in visibleAccountsForGroup(groupAccs)"
-                  :key="account.id"
-                  class="channel-pill"
-                  :class="{ selected: form.social_accounts.includes(account.id) }"
-                  :title="accountTooltip(account)"
-                  @click="toggleSelectedAccount(account.id)"
-                >
-                  <span class="channel-pill-avatar" :class="accountPlatformClass(account)">
-                    <PlatformIcon :platform="accountPlatformClass(account)" :size="16" />
-                  </span>
-                  <span class="channel-pill-meta">
-                    <strong>{{ account.display_name }}</strong>
-                    <small>{{ accountDescriptor(account) }}</small>
-                  </span>
-                  <span class="channel-pill-badge" :class="accountPlatformClass(account)">{{ accountBadgeLabel(account) }}</span>
-                </button>
-              </div>
-
+            <div class="channel-pill-row vertical">
               <button
-                v-if="hiddenAccountsForGroup(groupAccs)"
-                class="channel-show-more"
-                type="button"
-                @click="openGroupModal(String(platform))"
+                v-for="account in filteredChannels"
+                :key="account.id"
+                class="channel-pill"
+                :class="{ selected: form.social_accounts.includes(account.id) }"
+                :title="accountTooltip(account)"
+                @click="toggleSelectedAccount(account.id)"
               >
-                Show {{ hiddenAccountsForGroup(groupAccs) }} more
+                <span class="channel-pill-avatar" :class="accountPlatformClass(account)">
+                  <PlatformIcon :platform="accountPlatformClass(account)" :size="16" />
+                </span>
+                <span class="channel-pill-meta">
+                  <strong>{{ account.display_name }}</strong>
+                  <small>{{ accountDescriptor(account) }}</small>
+                </span>
+                <span class="channel-pill-badge" :class="accountPlatformClass(account)">{{ accountBadgeLabel(account) }}</span>
               </button>
             </div>
 
-            <div v-if="!Object.keys(filteredGroupedChannels).length" class="channel-empty-search">
+            <div v-if="!filteredChannels.length" class="channel-empty-search">
               No channels match this search.
             </div>
           </div>
@@ -1641,7 +1697,7 @@ function pageHint() {
             </div>
             <div class="editor-header-actions">
               <button class="pill-btn" @click="startNewPost('draft')">Reset</button>
-              <button class="pill-btn" @click="closeComposer">Close</button>
+              <button class="pill-btn" @click="requestCloseComposer">Close</button>
             </div>
           </div>
 
@@ -1769,137 +1825,6 @@ function pageHint() {
             </div>
           </div>
 
-          <div v-if="hasTikTokSelection" class="editor-block tiktok-guidance-block">
-            <div class="tiktok-guidance-header">
-              <div>
-                <label class="editor-label">TikTok publishing settings</label>
-                <strong>{{ tiktokCreatorLabel }}</strong>
-              </div>
-              <span class="tiktok-guidance-badge">Fresh from creator info</span>
-            </div>
-
-            <div v-if="tiktokOptionsLoading" class="editor-alert warning">
-              Loading TikTok creator settings...
-            </div>
-            <div v-else-if="tiktokOptionsError" class="editor-alert danger">
-              {{ tiktokOptionsError }}
-            </div>
-
-            <template v-else>
-              <div class="tiktok-grid">
-                <label class="tiktok-field">
-                  <span>Privacy</span>
-                  <select v-model="tiktokForm.privacy_level" class="tiktok-select">
-                    <option value="">Choose privacy</option>
-                    <option
-                      v-for="option in tiktokPrivacyOptions"
-                      :key="option"
-                      :value="option"
-                      :disabled="option === 'SELF_ONLY' && tiktokForm.brand_content_toggle"
-                    >
-                      {{ tiktokPrivacyLabel(option) }}
-                    </option>
-                  </select>
-                </label>
-
-                <div v-if="tiktokOptions?.max_video_post_duration_sec && tiktokUsesVideo" class="tiktok-meta-card">
-                  <span>Video limit</span>
-                  <strong>{{ tiktokOptions.max_video_post_duration_sec }}s max</strong>
-                  <small v-if="selectedVideoAssets[0] && videoDurationByAssetId[selectedVideoAssets[0].id]">
-                    Selected {{ Math.ceil(videoDurationByAssetId[selectedVideoAssets[0].id] || 0) }}s
-                  </small>
-                </div>
-              </div>
-
-              <div v-if="tiktokAccountPrivacyWarning" class="editor-alert warning">
-                {{ tiktokAccountPrivacyWarning }}
-              </div>
-
-              <div class="tiktok-toggle-grid">
-                <label class="tiktok-toggle">
-                  <input
-                    v-model="tiktokForm.allow_comment"
-                    type="checkbox"
-                    :disabled="tiktokOptions?.comment_disabled"
-                  />
-                  <span>
-                    <strong>Allow comments</strong>
-                    <small v-if="tiktokOptions?.comment_disabled">Unavailable for this creator account</small>
-                    <small v-else>Users turn this on explicitly per TikTok post</small>
-                  </span>
-                </label>
-
-                <label v-if="tiktokUsesVideo" class="tiktok-toggle">
-                  <input
-                    v-model="tiktokForm.allow_duet"
-                    type="checkbox"
-                    :disabled="tiktokOptions?.duet_disabled"
-                  />
-                  <span>
-                    <strong>Allow Duet</strong>
-                    <small v-if="tiktokOptions?.duet_disabled">Unavailable for this creator account</small>
-                    <small v-else>Off until the creator opts in</small>
-                  </span>
-                </label>
-
-                <label v-if="tiktokUsesVideo" class="tiktok-toggle">
-                  <input
-                    v-model="tiktokForm.allow_stitch"
-                    type="checkbox"
-                    :disabled="tiktokOptions?.stitch_disabled"
-                  />
-                  <span>
-                    <strong>Allow Stitch</strong>
-                    <small v-if="tiktokOptions?.stitch_disabled">Unavailable for this creator account</small>
-                    <small v-else>Off until the creator opts in</small>
-                  </span>
-                </label>
-              </div>
-
-              <div class="tiktok-commercial-block">
-                <label class="tiktok-toggle">
-                  <input v-model="tiktokForm.commercial_content_enabled" type="checkbox" />
-                  <span>
-                    <strong>Commercial content</strong>
-                    <small>Turn this on when the post includes promotional or paid partnership disclosure.</small>
-                  </span>
-                </label>
-
-                <div v-if="tiktokForm.commercial_content_enabled" class="tiktok-commercial-options">
-                  <label class="tiktok-toggle">
-                    <input v-model="tiktokForm.brand_organic_toggle" type="checkbox" />
-                    <span>
-                      <strong>Promotional content</strong>
-                      <small>Brand promoting its own goods or services.</small>
-                    </span>
-                  </label>
-                  <label class="tiktok-toggle">
-                    <input v-model="tiktokForm.brand_content_toggle" type="checkbox" />
-                    <span>
-                      <strong>Paid partnership</strong>
-                      <small>Creator is promoting another brand.</small>
-                    </span>
-                  </label>
-                  <p v-if="tiktokDisclosureLabel" class="tiktok-helper-copy">
-                    {{ tiktokDisclosureLabel }}
-                  </p>
-                  <p v-if="tiktokBrandedContentPrivateConflict" class="tiktok-helper-copy danger">
-                    Paid partnership content cannot use the "Only me" privacy setting.
-                  </p>
-                </div>
-              </div>
-
-              <p v-if="tiktokVideoDurationExceededMessage" class="tiktok-helper-copy danger">
-                {{ tiktokVideoDurationExceededMessage }}
-              </p>
-
-              <label class="tiktok-consent">
-                <input v-model="tiktokForm.consent_confirmed" type="checkbox" />
-                <span>{{ tiktokConsentLabel }}</span>
-              </label>
-            </template>
-          </div>
-
           <div class="editor-footer">
             <div class="editor-footnote">
               <strong>{{ pageHint() }}</strong>
@@ -1985,6 +1910,17 @@ function pageHint() {
           </div>
 
         </aside>
+      </div>
+
+      <div v-if="showDiscardComposerConfirm" class="confirm-overlay" @click.self="keepEditingComposer">
+        <section class="confirm-modal discard-confirm-modal">
+          <h3>Discard changes?</h3>
+          <p class="confirm-copy">You'll permanently lose any changes you've made.</p>
+          <div class="confirm-actions">
+            <button class="btn secondary" type="button" @click="keepEditingComposer">Keep editing</button>
+            <button class="mini-btn danger confirm-discard-btn" type="button" @click="discardComposerChanges">Discard changes</button>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -2346,6 +2282,12 @@ function pageHint() {
   gap: 2px;
 }
 
+.post-status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .post-account-copy strong,
 .preview-meta-card strong,
 .channel-preview-head strong {
@@ -2396,6 +2338,7 @@ function pageHint() {
 .status-pill {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   width: fit-content;
   border-radius: 999px;
   padding: 6px 10px;
@@ -2428,6 +2371,22 @@ function pageHint() {
 .status-pill[data-tone="muted"] {
   background: rgba(107, 118, 111, 0.16);
   color: #58625c;
+}
+
+.status-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: status-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .mini-btn,
@@ -2651,39 +2610,6 @@ function pageHint() {
 .editor-block.grow .caption-input {
   flex: 1;
   min-height: 120px;
-}
-
-.tiktok-guidance-block {
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  background: rgba(17, 17, 17, 0.03);
-}
-
-.tiktok-guidance-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.tiktok-guidance-header strong {
-  display: block;
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.tiktok-guidance-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .tiktok-grid {
@@ -3558,7 +3484,22 @@ function pageHint() {
   background: rgba(160, 46, 34, 0.08);
 }
 
+.discard-confirm-modal {
+  width: min(380px, 100%);
+  gap: 12px;
+}
+
+.confirm-discard-btn {
+  border-color: rgba(160, 46, 34, 0.14);
+  background: rgba(160, 46, 34, 0.08);
+}
+
 .confirm-delete-btn:hover:not(:disabled) {
+  background: rgba(160, 46, 34, 0.12);
+  border-color: rgba(160, 46, 34, 0.18);
+}
+
+.confirm-discard-btn:hover:not(:disabled) {
   background: rgba(160, 46, 34, 0.12);
   border-color: rgba(160, 46, 34, 0.18);
 }

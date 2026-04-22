@@ -1319,6 +1319,8 @@ class TikTokAdapter(ProviderAdapter):
     REQUEST_TIMEOUT = 60
     RETRYABLE_REQUEST_ATTEMPTS = 2
     RETRYABLE_REQUEST_DELAY = 1.0
+    PUBLISH_STATUS_REQUEST_TIMEOUT = 5
+    PUBLISH_STATUS_RETRYABLE_REQUEST_ATTEMPTS = 1
     USER_AGENT = "Schedra/1.0 (+https://schedra.net)"
     PUBLISH_OPTIONS_CACHE_MAX_AGE = 15 * 60
 
@@ -1401,16 +1403,25 @@ class TikTokAdapter(ProviderAdapter):
         detail = str(getattr(exc, "reason", exc) or "").lower()
         return "timed out" in detail
 
-    def _urlopen(self, request: Request, timeout: int | float | None = None):
+    def _urlopen(
+        self,
+        request: Request,
+        timeout: int | float | None = None,
+        *,
+        retry_attempts: int | None = None,
+        retry_delay: float | None = None,
+    ):
         last_exc: Exception | None = None
-        for attempt in range(1, self.RETRYABLE_REQUEST_ATTEMPTS + 1):
+        attempts = retry_attempts if retry_attempts is not None else self.RETRYABLE_REQUEST_ATTEMPTS
+        delay = retry_delay if retry_delay is not None else self.RETRYABLE_REQUEST_DELAY
+        for attempt in range(1, attempts + 1):
             try:
                 return urlopen(request, timeout=timeout or self.REQUEST_TIMEOUT)
             except (URLError, TimeoutError, socket.timeout) as exc:
                 last_exc = exc
-                if attempt >= self.RETRYABLE_REQUEST_ATTEMPTS or not self._is_retryable_network_error(exc):
+                if attempt >= attempts or not self._is_retryable_network_error(exc):
                     raise
-                time.sleep(self.RETRYABLE_REQUEST_DELAY)
+                time.sleep(delay)
         if last_exc:
             raise last_exc
 
@@ -1422,6 +1433,8 @@ class TikTokAdapter(ProviderAdapter):
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         timeout: int | float | None = None,
+        retry_attempts: int | None = None,
+        retry_delay: float | None = None,
     ) -> dict[str, Any]:
         url = f"{self.API_BASE}{path}"
         if params:
@@ -1437,7 +1450,12 @@ class TikTokAdapter(ProviderAdapter):
             headers["Content-Type"] = "application/json; charset=UTF-8"
         request = Request(url, data=payload, method=method, headers=headers)
         try:
-            with self._urlopen(request, timeout=timeout) as response:
+            with self._urlopen(
+                request,
+                timeout=timeout,
+                retry_attempts=retry_attempts,
+                retry_delay=retry_delay,
+            ) as response:
                 body = response.read().decode("utf-8")
                 result = json.loads(body) if body else {}
         except HTTPError as exc:
@@ -1576,7 +1594,15 @@ class TikTokAdapter(ProviderAdapter):
         publish_id = provider_result.get("provider_post_id") or ((provider_result.get("raw") or {}).get("data") or {}).get("publish_id")
         if not publish_id:
             raise ValueError("TikTok publish status check requires a publish_id.")
-        result = self._api("/post/publish/status/fetch/", access_token, method="POST", data={"publish_id": publish_id})
+        result = self._api(
+            "/post/publish/status/fetch/",
+            access_token,
+            method="POST",
+            data={"publish_id": publish_id},
+            timeout=self.PUBLISH_STATUS_REQUEST_TIMEOUT,
+            retry_attempts=self.PUBLISH_STATUS_RETRYABLE_REQUEST_ATTEMPTS,
+            retry_delay=0,
+        )
         data = result.get("data") or {}
         raw_status = str(data.get("status") or "").upper()
         fail_reason = data.get("fail_reason") or data.get("error") or data.get("message") or ""

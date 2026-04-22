@@ -1,6 +1,7 @@
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
+from .cleanup import delete_media_asset_file, get_media_asset_reference_summary
 from .models import MediaAsset
 from .serializers import MediaAssetSerializer
 
@@ -68,3 +69,19 @@ class MediaAssetViewSet(viewsets.ModelViewSet):
 
         serializer = MediaAssetSerializer(asset, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        asset = self.get_object()
+        references = get_media_asset_reference_summary(asset)
+        if references["total"] > 0:
+            return Response(
+                {
+                    "detail": "This media asset is still used by posts or campaigns. Remove those references before deleting it.",
+                    "references": references,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        delete_media_asset_file(asset)
+        asset.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

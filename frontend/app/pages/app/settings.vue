@@ -177,6 +177,48 @@ const providerOptions = computed<ProviderOption[]>(() => [
   { code: "pinterest", label: "Pinterest", subtitle: "Board", accent: "#e60023", icon: "p", available: true },
 ])
 
+function flowEntityLabel(providerCode?: ProviderCode | null) {
+  if (providerCode === "pinterest") return "board"
+  if (providerCode === "facebook") return "page"
+  if (providerCode === "linkedin") return "account"
+  if (providerCode === "instagram") return "account"
+  if (providerCode === "youtube") return "channel"
+  if (providerCode === "tiktok") return "account"
+  return "account"
+}
+
+function flowEntityPluralLabel(providerCode?: ProviderCode | null) {
+  if (providerCode === "pinterest") return "boards"
+  if (providerCode === "facebook") return "pages"
+  if (providerCode === "youtube") return "channels"
+  return "accounts"
+}
+
+function availableAccountTypeLabel(account: OAuthPage) {
+  if (account.account_type === "instagram_business") return "Instagram account"
+  if (account.account_type === "tiktok_creator") return "TikTok Creator"
+  if (account.account_type === "youtube_channel") return "YouTube channel"
+  if (account.account_type === "personal") return "LinkedIn profile"
+  if (account.account_type === "pinterest_board") return "Pinterest board"
+  return "Facebook Page"
+}
+
+function flowEmptyStateHint(providerCode?: ProviderCode | null) {
+  if (providerCode === "instagram") {
+    return "Make sure the Instagram account is Professional and the app has the required Instagram scopes."
+  }
+  if (providerCode === "linkedin") {
+    return "Make sure the LinkedIn account has granted the required permissions."
+  }
+  if (providerCode === "tiktok") {
+    return "Make sure the TikTok account is added as a sandbox target user and granted the requested scopes."
+  }
+  if (providerCode === "pinterest") {
+    return "Make sure the Pinterest login has access to at least one board and granted boards:read."
+  }
+  return "Make sure the login you used has access to at least one Facebook Page."
+}
+
 function storedOAuthProvider() {
   if (typeof window === "undefined") return null
   const provider = window.sessionStorage.getItem("social_oauth_provider")
@@ -610,7 +652,7 @@ async function connectAccount(account: OAuthPage) {
       }, 600)
     }
   } catch (e: any) {
-    error.value = extractApiError(e, "Failed to connect page")
+    error.value = extractApiError(e, `Failed to connect ${flowEntityLabel(flowProvider.value)}`)
   } finally {
     connecting.value = null
   }
@@ -718,23 +760,13 @@ async function selectProvider(option: ProviderOption) {
 
         <div v-else-if="step === 'selecting'" class="flow-stack">
           <div class="flow-panel">
-            <strong>Select {{ flowProviderLabel }} channels</strong>
-            <span>Only the accounts you connect here will show up in Publish and Calendar.</span>
+            <strong>Select {{ flowProviderLabel }} {{ flowEntityPluralLabel(flowProvider) }}</strong>
+            <span>Only the {{ flowEntityPluralLabel(flowProvider) }} you connect here will show up in Publish and Calendar.</span>
           </div>
 
           <div v-if="!availableAccounts.length" class="flow-panel">
-            <strong>No {{ flowProviderLabel }} channels found</strong>
-            <span>
-              {{
-                flowProvider === "instagram"
-                  ? "Make sure the Instagram account is Professional and the app has the required Instagram scopes."
-                  : flowProvider === "linkedin"
-                    ? "Make sure the LinkedIn account has granted the required permissions."
-                    : flowProvider === "tiktok"
-                      ? "Make sure the TikTok account is added as a sandbox target user and granted the requested scopes."
-                    : "Make sure the login you used has access to at least one Facebook Page."
-              }}
-            </span>
+            <strong>No {{ flowProviderLabel }} {{ flowEntityPluralLabel(flowProvider) }} found</strong>
+            <span>{{ flowEmptyStateHint(flowProvider) }}</span>
           </div>
 
           <article v-for="account in availableAccounts" :key="account.external_id" class="channel-row selectable">
@@ -744,13 +776,7 @@ async function selectProvider(option: ProviderOption) {
               </div>
               <div class="channel-copy">
                 <strong>{{ account.display_name }}</strong>
-                <span>{{
-                  account.account_type === "instagram_business" ? "Instagram account"
-                  : account.account_type === "tiktok_creator" ? "TikTok Creator"
-                  : account.account_type === "youtube_channel" ? "YouTube channel"
-                  : account.account_type === "personal" ? "LinkedIn profile"
-                  : "Facebook Page"
-                }}</span>
+                <span>{{ availableAccountTypeLabel(account) }}</span>
                 <small>{{ account.timezone }} · {{ account.external_id }}</small>
               </div>
             </div>

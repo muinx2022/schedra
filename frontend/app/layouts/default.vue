@@ -52,45 +52,18 @@ function openAppNavItem(to: string) {
   router.push(to)
 }
 
-function platformColor(code: string) {
-  if (code === "facebook") return "#1877f2"
-  if (code === "instagram") return "#e1306c"
-  if (code === "twitter" || code === "x") return "#000"
-  if (code === "linkedin") return "#0077b5"
-  if (code === "tiktok") return "#010101"
-  return "#6b766f"
-}
-
-function platformLabel(code: string) {
-  if (code === "facebook") return "f"
-  if (code === "instagram") return "ig"
-  if (code === "twitter" || code === "x") return "x"
-  if (code === "linkedin") return "in"
-  if (code === "tiktok") return "tt"
-  return code[0]?.toUpperCase() ?? "?"
-}
-
-function platformName(code: string) {
-  const names: Record<string, string> = {
-    facebook: "Facebook",
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    linkedin: "LinkedIn",
-    youtube: "YouTube",
-    pinterest: "Pinterest",
+function accountPlatformClass(account: any): string {
+  const providerCode = String(account?.provider_code || account?.channel_code || "").toLowerCase()
+  if (["facebook", "instagram", "linkedin", "tiktok", "youtube", "pinterest"].includes(providerCode)) {
+    return providerCode
   }
-  return names[code] ?? code
+  if (account?.account_type === "instagram_business") return "instagram"
+  if (account?.account_type === "tiktok_creator") return "tiktok"
+  if (account?.account_type === "youtube_channel") return "youtube"
+  if (account?.account_type === "personal") return "linkedin"
+  if (account?.account_type === "pinterest_board") return "pinterest"
+  return "facebook"
 }
-
-const groupedAccounts = computed(() => {
-  const groups: Record<string, any[]> = {}
-  for (const acc of accounts.value ?? []) {
-    const key = (acc.channel_code || acc.provider_code) as string
-    if (!groups[key]) groups[key] = []
-    groups[key].push(acc)
-  }
-  return groups
-})
 
 watch(() => route.fullPath, () => {
   channelsDrawerOpen.value = false
@@ -134,35 +107,18 @@ watch(() => route.fullPath, () => {
         <div v-if="!accounts?.length" class="sidebar-channels-empty">
           <NuxtLink to="/app/settings" class="sidebar-connect-btn">+ Connect a channel</NuxtLink>
         </div>
-        <template v-for="(groupAccs, platform) in groupedAccounts" :key="platform">
-          <div class="sidebar-group-header">
-            <span class="sidebar-group-label">{{ platformName(String(platform)) }}</span>
-            <span class="sidebar-group-count">{{ groupAccs.length }}</span>
+        <button
+          v-for="acc in accounts"
+          :key="acc.id"
+          class="sidebar-channel-item"
+          :class="{ active: route.query.account == acc.id }"
+          @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
+        >
+          <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
+            <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
           </div>
-          <button
-            v-for="acc in groupAccs.slice(0, 10)"
-            :key="acc.id"
-            class="sidebar-channel-item"
-            :class="{ active: route.query.account == acc.id }"
-            @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
-          >
-            <div class="sidebar-channel-avatar-wrap">
-              <div class="sidebar-channel-avatar">{{ acc.display_name[0] }}</div>
-              <div
-                class="sidebar-channel-platform"
-                :style="{ background: platformColor(acc.channel_code || acc.provider_code) }"
-              >{{ platformLabel(acc.channel_code || acc.provider_code) }}</div>
-            </div>
-            <span class="sidebar-channel-name">{{ acc.display_name }}</span>
-          </button>
-          <NuxtLink
-            v-if="groupAccs.length > 10"
-            :to="`/app/settings?platform=${String(platform)}`"
-            class="sidebar-show-all"
-          >
-            Show all ({{ groupAccs.length }})
-          </NuxtLink>
-        </template>
+          <span class="sidebar-channel-name">{{ acc.display_name }}</span>
+        </button>
       </div>
 
       <div class="sidebar-footer">
@@ -220,28 +176,18 @@ watch(() => route.fullPath, () => {
             <div v-if="!accounts?.length" class="sidebar-channels-empty">
               <NuxtLink to="/app/settings" class="sidebar-connect-btn">+ Connect a channel</NuxtLink>
             </div>
-            <template v-for="(groupAccs, platform) in groupedAccounts" :key="platform">
-              <div class="sidebar-group-header">
-                <span class="sidebar-group-label">{{ platformName(String(platform)) }}</span>
-                <span class="sidebar-group-count">{{ groupAccs.length }}</span>
+            <button
+              v-for="acc in accounts"
+              :key="acc.id"
+              class="sidebar-channel-item"
+              :class="{ active: route.query.account == acc.id }"
+              @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
+            >
+              <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
+                <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
               </div>
-              <button
-                v-for="acc in groupAccs"
-                :key="acc.id"
-                class="sidebar-channel-item"
-                :class="{ active: route.query.account == acc.id }"
-                @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
-              >
-                <div class="sidebar-channel-avatar-wrap">
-                  <div class="sidebar-channel-avatar">{{ acc.display_name[0] }}</div>
-                  <div
-                    class="sidebar-channel-platform"
-                    :style="{ background: platformColor(acc.channel_code || acc.provider_code) }"
-                  >{{ platformLabel(acc.channel_code || acc.provider_code) }}</div>
-                </div>
-                <span class="sidebar-channel-name">{{ acc.display_name }}</span>
-              </button>
-            </template>
+              <span class="sidebar-channel-name">{{ acc.display_name }}</span>
+            </button>
           </aside>
         </div>
       </Teleport>
@@ -318,7 +264,6 @@ watch(() => route.fullPath, () => {
 }
 
 .sidebar-channels-header,
-.sidebar-group-header,
 .mobile-drawer-head {
   display: flex;
   align-items: center;
@@ -329,8 +274,7 @@ watch(() => route.fullPath, () => {
   padding: 0 12px 8px;
 }
 
-.sidebar-section-label,
-.sidebar-group-header {
+.sidebar-section-label {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -395,38 +339,38 @@ watch(() => route.fullPath, () => {
   border-color: var(--line-soft);
 }
 
-.sidebar-channel-avatar-wrap {
-  position: relative;
+.sidebar-channel-provider {
   flex-shrink: 0;
   width: 30px;
   height: 30px;
-}
-
-.sidebar-channel-avatar {
-  width: 30px;
-  height: 30px;
   border-radius: 8px;
-  background: var(--surface-muted);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 800;
   display: grid;
   place-items: center;
+  color: white;
 }
 
-.sidebar-channel-platform {
-  position: absolute;
-  right: -4px;
-  bottom: -3px;
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--panel);
-  border-radius: 50%;
-  color: white;
-  font-size: 7px;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
+.sidebar-channel-provider.is-facebook {
+  background: #1877f2;
+}
+
+.sidebar-channel-provider.is-instagram {
+  background: #e1306c;
+}
+
+.sidebar-channel-provider.is-linkedin {
+  background: #0a66c2;
+}
+
+.sidebar-channel-provider.is-youtube {
+  background: #ff0000;
+}
+
+.sidebar-channel-provider.is-tiktok {
+  background: #111111;
+}
+
+.sidebar-channel-provider.is-pinterest {
+  background: #e60023;
 }
 
 .sidebar-channel-name {
@@ -436,26 +380,6 @@ watch(() => route.fullPath, () => {
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.sidebar-group-header {
-  padding: 8px 12px 2px;
-  font-size: 10px;
-}
-
-.sidebar-group-count {
-  opacity: 0.7;
-}
-
-.sidebar-show-all {
-  display: block;
-  padding: 4px 12px 8px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.sidebar-show-all:hover {
-  color: var(--ink);
 }
 
 .theme-link {
