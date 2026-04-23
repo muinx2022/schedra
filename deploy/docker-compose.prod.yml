@@ -134,8 +134,11 @@ services:
 
 volumes:
   media_data:
+    name: deploy_media_data
   redis_data:
+    name: deploy_redis_data
   static_data:
+    name: deploy_static_data
 
 networks:
   shared-network:
