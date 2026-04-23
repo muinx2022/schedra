@@ -135,10 +135,13 @@ services:
 volumes:
   media_data:
     name: deploy_media_data
+    external: true
   redis_data:
     name: deploy_redis_data
+    external: true
   static_data:
     name: deploy_static_data
+    external: true
 
 networks:
   shared-network:
