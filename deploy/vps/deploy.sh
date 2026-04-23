@@ -59,12 +59,20 @@ compose() {
   docker compose --project-name "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
+prepare_runtime_dirs() {
+  compose run --rm --user root api sh -lc '
+    mkdir -p /app/backend/.celery /app/backend/media /app/backend/staticfiles
+    chown -R app:app /app/backend/.celery /app/backend/media /app/backend/staticfiles
+  '
+}
+
 deploy_with_retry() {
   local attempt=1
 
   while true; do
     if compose pull redis "${SERVICES[@]}" && \
       compose up -d redis && \
+      prepare_runtime_dirs && \
       compose run --rm api python manage.py migrate --noinput && \
       compose run --rm api python manage.py collectstatic --noinput && \
       compose up -d --no-deps "${SERVICES[@]}"; then
