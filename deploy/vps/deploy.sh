@@ -18,6 +18,7 @@ COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-deploy/docker-compose.prod.yml}"
 ENV_FILE="${DEPLOY_ENV_FILE:-deploy/.env}"
 DEPLOY_RETRIES="${DEPLOY_RETRIES:-3}"
 DEPLOY_RETRY_DELAY="${DEPLOY_RETRY_DELAY:-10}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-schedra}"
 VALID_SERVICES=("api" "web")
 SERVICES=()
 
@@ -55,7 +56,7 @@ echo "SHA: $COMMIT_SHA"
 echo "Services: ${SERVICES[*]}"
 
 compose() {
-  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  docker compose --project-name "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
 deploy_with_retry() {
