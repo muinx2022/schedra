@@ -69,10 +69,14 @@ const session = useSessionState()
 const route = useRoute()
 const router = useRouter()
 const { preference: themePreference, options: themeOptions, setPreference } = useThemePreference()
+const OAUTH_CALLBACK_BASE_PATH = "/app/settings"
 
-const callbackBaseUrl = ref(
-  typeof window !== "undefined" ? `${window.location.origin}${localePath("/app/settings")}` : localePath("/app/settings")
-)
+function buildOAuthCallbackBaseUrl() {
+  if (typeof window === "undefined") return OAUTH_CALLBACK_BASE_PATH
+  return `${window.location.origin}${OAUTH_CALLBACK_BASE_PATH}`
+}
+
+const oauthCallbackBaseUrl = ref(buildOAuthCallbackBaseUrl())
 const step = ref<Step>("idle")
 const flowProvider = ref<ProviderCode | null>(null)
 const availableAccounts = ref<OAuthPage[]>([])
@@ -110,7 +114,7 @@ const weekdayOptions = computed(() => [
 ])
 
 onMounted(() => {
-  callbackBaseUrl.value = `${window.location.origin}${localePath("/app/settings")}`
+  oauthCallbackBaseUrl.value = buildOAuthCallbackBaseUrl()
 })
 
 const { data: connections, refresh: refreshConnections } = useAsyncData(
@@ -572,9 +576,9 @@ function statusTone(status?: string) {
 function callbackUrlFor(providerCode: ProviderCode) {
   const pathProviders: ProviderCode[] = ["instagram", "tiktok", "youtube", "pinterest"]
   if (pathProviders.includes(providerCode)) {
-    return `${callbackBaseUrl.value}/provider/${providerCode}`
+    return `${oauthCallbackBaseUrl.value}/provider/${providerCode}`
   }
-  return `${callbackBaseUrl.value}?provider=${providerCode}`
+  return `${oauthCallbackBaseUrl.value}?provider=${providerCode}`
 }
 
 async function startConnect(providerCode: ProviderCode) {
