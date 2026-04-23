@@ -23,6 +23,58 @@ def _is_transient_publish_status_error(post_target: PostTarget, exc: Exception) 
     return "Could not reach TikTok API from the local backend." in str(exc)
 
 
+def _sync_post_delivery_state(post) -> None:
+    statuses = list(post.targets.values_list("delivery_status", flat=True))
+    if not statuses:
+        return
+
+    next_status = post.delivery_status
+    if any(status == DeliveryStatus.PUBLISHING for status in statuses):
+        next_status = DeliveryStatus.PUBLISHING
+    elif any(status == DeliveryStatus.QUEUED for status in statuses):
+        next_status = DeliveryStatus.QUEUED
+    elif any(status == DeliveryStatus.SCHEDULED for status in statuses):
+        next_status = DeliveryStatus.SCHEDULED
+    elif all(status == DeliveryStatus.PUBLISHED for status in statuses):
+        next_status = DeliveryStatus.PUBLISHED
+    elif any(status == DeliveryStatus.FAILED for status in statuses):
+        next_status = DeliveryStatus.FAILED
+    elif all(status == DeliveryStatus.CANCELED for status in statuses):
+        next_status = DeliveryStatus.CANCELED
+    elif all(status == DeliveryStatus.DRAFT for status in statuses):
+        next_status = DeliveryStatus.DRAFT
+
+    update_fields = ["updated_at"]
+    if post.delivery_status != next_status:
+        post.delivery_status = next_status
+        update_fields.insert(0, "delivery_status")
+
+    if next_status == DeliveryStatus.PUBLISHED and not post.published_at:
+        post.published_at = timezone.now()
+        update_fields.insert(0, "published_at")
+    elif next_status != DeliveryStatus.PUBLISHED and post.published_at is not None:
+        post.published_at = None
+        update_fields.insert(0, "published_at")
+
+    post.save(update_fields=update_fields)
+
+
+def enqueue_publish_post_target(post_target: PostTarget) -> None:
+    publish_post_target.delay(str(post_target.id))
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        post_target.refresh_from_db()
+        has_attempt = PublishAttempt.objects.filter(post_target=post_target).exists()
+        if has_attempt or post_target.delivery_status == DeliveryStatus.PUBLISHING:
+            return
+        post_target.delivery_status = DeliveryStatus.PUBLISHING
+        post_target.save(update_fields=["delivery_status", "updated_at"])
+        _sync_post_delivery_state(post_target.post)
+        return
+    post_target.delivery_status = DeliveryStatus.PUBLISHING
+    post_target.save(update_fields=["delivery_status", "updated_at"])
+    _sync_post_delivery_state(post_target.post)
+
+
 def get_next_queue_slot_datetime(queue_slots, *, timezone_name: str, now: datetime | None = None) -> datetime:
     if not queue_slots:
         raise ValueError("No active queue slots.")
@@ -60,23 +112,31 @@ def dispatch_due_post_targets():
     )
 
     dispatched_target_ids: list[str] = []
+    dispatch_errors: list[dict[str, str]] = []
     for target in due_targets:
         if target.delivery_status == DeliveryStatus.PUBLISHING:
             continue
-        target.delivery_status = DeliveryStatus.PUBLISHING
-        target.save(update_fields=["delivery_status", "updated_at"])
-        target.post.delivery_status = DeliveryStatus.PUBLISHING
-        target.post.save(update_fields=["delivery_status", "updated_at"])
-        publish_post_target.delay(str(target.id))
-        dispatched_target_ids.append(str(target.id))
+        try:
+            enqueue_publish_post_target(target)
+            dispatched_target_ids.append(str(target.id))
+        except Exception as exc:
+            dispatch_errors.append({"target_id": str(target.id), "error": str(exc)})
 
-    return {"dispatched_target_ids": dispatched_target_ids, "count": len(dispatched_target_ids)}
+    return {
+        "dispatched_target_ids": dispatched_target_ids,
+        "dispatch_errors": dispatch_errors,
+        "count": len(dispatched_target_ids),
+    }
 
 
 @app.task
 def publish_post_target(post_target_id: str):
     post_target = PostTarget.objects.select_related("post", "social_account__provider").prefetch_related("post__media_items__media_asset").get(pk=post_target_id)
     adapter = get_provider_adapter(post_target.social_account.provider.code)
+    if post_target.delivery_status != DeliveryStatus.PUBLISHING:
+        post_target.delivery_status = DeliveryStatus.PUBLISHING
+        post_target.save(update_fields=["delivery_status", "updated_at"])
+    _sync_post_delivery_state(post_target.post)
     request_payload = {
         "caption_text": post_target.post.caption_text,
         "payload": post_target.post.payload,
@@ -123,9 +183,8 @@ def publish_post_target(post_target_id: str):
         else:
             post_target.delivery_status = DeliveryStatus.PUBLISHING
             post_target.provider_result = response
-            post_target.post.delivery_status = DeliveryStatus.PUBLISHING
-            post_target.post.save(update_fields=["delivery_status", "updated_at"])
             post_target.save(update_fields=["delivery_status", "provider_result", "updated_at"])
+            _sync_post_delivery_state(post_target.post)
             attempt.response_payload = response
             attempt.save(update_fields=["response_payload", "updated_at"])
             _schedule_publish_status_poll(str(post_target.id), PUBLISH_STATUS_POLL_ATTEMPTS)
@@ -140,10 +199,8 @@ def _mark_post_target_published(post_target: PostTarget, attempt: PublishAttempt
     attempt.save()
     post_target.delivery_status = DeliveryStatus.PUBLISHED
     post_target.provider_result = response
-    post_target.post.delivery_status = DeliveryStatus.PUBLISHED
-    post_target.post.published_at = timezone.now()
-    post_target.post.save(update_fields=["delivery_status", "published_at", "updated_at"])
     post_target.save(update_fields=["delivery_status", "provider_result", "updated_at"])
+    _sync_post_delivery_state(post_target.post)
 
 
 def _mark_post_target_failed(post_target: PostTarget, attempt: PublishAttempt, error_detail: str, response: dict | None = None):
@@ -155,9 +212,8 @@ def _mark_post_target_failed(post_target: PostTarget, attempt: PublishAttempt, e
     attempt.save()
     post_target.delivery_status = DeliveryStatus.FAILED
     post_target.provider_result = {"error": error_detail, **(response or {})}
-    post_target.post.delivery_status = DeliveryStatus.FAILED
-    post_target.post.save(update_fields=["delivery_status", "updated_at"])
     post_target.save(update_fields=["delivery_status", "provider_result", "updated_at"])
+    _sync_post_delivery_state(post_target.post)
 
 
 def _schedule_publish_status_poll(post_target_id: str, attempts_left: int):
@@ -228,4 +284,10 @@ def poll_post_target_status(post_target_id: str, attempts_left: int = PUBLISH_ST
 
     if attempts_left > 1:
         _schedule_publish_status_poll(post_target_id, attempts_left - 1)
-    return {"status": "publishing", "attempts_left": attempts_left - 1}
+        return {"status": "publishing", "attempts_left": attempts_left - 1}
+
+    if attempt is None:
+        attempt = PublishAttempt.objects.create(post_target=post_target, status=DeliveryStatus.PUBLISHING, request_payload={})
+    timeout_message = f"Publishing confirmation timed out after {PUBLISH_STATUS_POLL_ATTEMPTS} checks."
+    _mark_post_target_failed(post_target, attempt, timeout_message, response)
+    return {"status": "failed", "error": timeout_message}

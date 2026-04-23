@@ -1,4 +1,4 @@
-from datetime import timedelta
+﻿from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
@@ -148,19 +148,40 @@ class PublishingFlowTests(APITestCase):
         self.assertEqual(post.delivery_status, DeliveryStatus.PUBLISHING)
         self.assertEqual(target.delivery_status, DeliveryStatus.PUBLISHING)
         mocked_publish_delay.assert_called_once_with(str(target.id))
-        return
-        target = post.targets.get()
-        target.delivery_status = DeliveryStatus.FAILED
-        target.provider_result = {"error": "TikTok app chưa được audit, chỉ được post private."}
-        target.save(update_fields=["delivery_status", "provider_result", "updated_at"])
-        post.delivery_status = DeliveryStatus.FAILED
-        post.save(update_fields=["delivery_status", "updated_at"])
-        mocked_await_targets.return_value = [target]
+
+    @patch("publishing.tasks.publish_post_target.delay")
+    def test_publish_now_returns_503_without_flipping_status_when_queueing_fails(self, mocked_publish_delay):
+        mocked_publish_delay.side_effect = RuntimeError("broker unavailable")
+        response = self.client.post(
+            "/api/posts/",
+            {
+                "internal_name": "Hello",
+                "caption_text": "Hello world",
+                "content_type": "feed_post",
+                "editorial_state": "draft",
+                "delivery_strategy": "now",
+                "delivery_status": "draft",
+                "payload": {"version": 1, "feed_post": {}},
+                "targets": [
+                    {
+                        "social_account": str(self.account.id),
+                        "delivery_strategy": "now",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        post = Post.objects.get(pk=response.data["id"])
 
         publish_response = self.client.post(f"/api/posts/{post.id}/publish_now/", {}, format="json")
 
-        self.assertEqual(publish_response.status_code, 400)
-        self.assertIn("TikTok app chưa được audit", publish_response.data["detail"])
+        self.assertEqual(publish_response.status_code, 503)
+        post.refresh_from_db()
+        target = post.targets.get()
+        self.assertEqual(post.delivery_status, DeliveryStatus.DRAFT)
+        self.assertEqual(target.delivery_status, DeliveryStatus.DRAFT)
+        self.assertIn("Could not queue publish task", publish_response.data["detail"])
 
     def test_instagram_single_post_requires_exactly_one_media(self):
         response = self.client.post(
@@ -421,8 +442,9 @@ class PublishingFlowTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         post_id = response.data["id"]
 
-        with self.assertRaisesMessage(ValueError, "Local media assets need a public base URL"):
-            self.client.post(f"/api/posts/{post_id}/publish_now/", {}, format="json")
+        publish_response = self.client.post(f"/api/posts/{post_id}/publish_now/", {}, format="json")
+        self.assertEqual(publish_response.status_code, 400)
+        self.assertIn("Local media assets need a public base URL", publish_response.data["detail"])
 
     def test_publish_now_uses_absolute_public_media_url(self):
         media_settings = MediaUploadSettings.load()
@@ -523,6 +545,86 @@ class PublishingFlowTests(APITestCase):
         post.refresh_from_db()
         self.assertEqual(target.delivery_status, DeliveryStatus.PUBLISHING)
         self.assertEqual(post.delivery_status, DeliveryStatus.PUBLISHING)
+
+    @patch("publishing.tasks.get_provider_adapter")
+    def test_final_poll_timeout_marks_post_failed(self, mocked_get_provider_adapter):
+        tiktok_provider = SocialProvider.objects.create(code="tiktok_timeout", name="TikTok Timeout")
+        tiktok_connection = SocialConnection.objects.create(
+            workspace=self.workspace,
+            provider=tiktok_provider,
+            status="connected",
+            access_token="token",
+        )
+        tiktok_account = SocialAccount.objects.create(
+            workspace=self.workspace,
+            connection=tiktok_connection,
+            provider=tiktok_provider,
+            external_id="tt-creator-timeout",
+            display_name="Demo TikTok Timeout",
+            account_type="tiktok_creator",
+            metadata={"access_token": "token"},
+        )
+        post = Post.objects.create(
+            workspace=self.workspace,
+            author=self.user,
+            caption_text="TikTok timeout post",
+            delivery_strategy="now",
+            delivery_status=DeliveryStatus.PUBLISHING,
+            payload={"version": 1, "feed_post": {}},
+        )
+        target = PostTarget.objects.create(
+            post=post,
+            social_account=tiktok_account,
+            delivery_strategy="now",
+            delivery_status=DeliveryStatus.PUBLISHING,
+            provider_result={"provider_post_id": "v_pub_url~timeout.demo", "status": "publishing"},
+        )
+
+        adapter = mocked_get_provider_adapter.return_value
+        adapter.get_publish_status.return_value = {
+            "provider_post_id": "v_pub_url~timeout.demo",
+            "status": "publishing",
+            "raw_status": "PROCESSING_PUBLISH",
+        }
+
+        result = poll_post_target_status(str(target.id), attempts_left=1)
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("timed out", result["error"])
+        target.refresh_from_db()
+        post.refresh_from_db()
+        self.assertEqual(target.delivery_status, DeliveryStatus.FAILED)
+        self.assertEqual(post.delivery_status, DeliveryStatus.FAILED)
+        self.assertIn("timed out", target.provider_result["error"])
+
+    @patch("publishing.tasks.publish_post_target.delay")
+    def test_dispatch_due_post_targets_keeps_scheduled_status_when_queueing_fails(self, mocked_publish_delay):
+        mocked_publish_delay.side_effect = RuntimeError("broker unavailable")
+        post = Post.objects.create(
+            workspace=self.workspace,
+            author=self.user,
+            caption_text="Scheduled post",
+            delivery_strategy="schedule",
+            delivery_status=DeliveryStatus.SCHEDULED,
+            scheduled_at=timezone.now() - timedelta(minutes=5),
+            payload={"version": 1, "feed_post": {}},
+        )
+        target = PostTarget.objects.create(
+            post=post,
+            social_account=self.account,
+            delivery_strategy="schedule",
+            delivery_status=DeliveryStatus.SCHEDULED,
+            scheduled_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        result = dispatch_due_post_targets()
+
+        self.assertEqual(result["count"], 0)
+        self.assertEqual(result["dispatch_errors"][0]["target_id"], str(target.id))
+        target.refresh_from_db()
+        post.refresh_from_db()
+        self.assertEqual(target.delivery_status, DeliveryStatus.SCHEDULED)
+        self.assertEqual(post.delivery_status, DeliveryStatus.SCHEDULED)
 
     def test_queue_assigns_next_scheduled_at_from_queue_slot(self):
         response = self.client.post(

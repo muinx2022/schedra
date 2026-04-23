@@ -10,7 +10,7 @@ from social.models import QueueSlot
 
 from .models import DeliveryStatus, Post
 from .serializers import PostSerializer
-from .tasks import get_next_queue_slot_datetime, publish_post_target
+from .tasks import enqueue_publish_post_target, get_next_queue_slot_datetime
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -49,13 +49,14 @@ class PostViewSet(viewsets.ModelViewSet):
         targets = list(post.targets.all())
         if not targets:
             return Response({"detail": "Post needs a target account."}, status=status.HTTP_400_BAD_REQUEST)
-        post.delivery_status = DeliveryStatus.PUBLISHING
-        post.save(update_fields=["delivery_status", "updated_at"])
-        target_ids = []
-        for target in targets:
-            target.delivery_status = DeliveryStatus.PUBLISHING
-            target.save(update_fields=["delivery_status", "updated_at"])
-            publish_post_target.delay(str(target.id))
+        try:
+            with transaction.atomic():
+                for target in targets:
+                    enqueue_publish_post_target(target)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({"detail": f"Could not queue publish task. {exc}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         post.refresh_from_db()
         return Response(PostSerializer(post).data)
 
@@ -118,6 +119,12 @@ class PostViewSet(viewsets.ModelViewSet):
         targets = list(post.targets.all())
         if not targets:
             return Response({"detail": "Post needs a target account."}, status=status.HTTP_400_BAD_REQUEST)
-        for target in targets:
-            publish_post_target.delay(str(target.id))
+        try:
+            with transaction.atomic():
+                for target in targets:
+                    enqueue_publish_post_target(target)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({"detail": f"Could not queue retry task. {exc}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({"status": "queued_for_retry", "post_id": str(post.id)})

@@ -1349,8 +1349,8 @@ async function submit(strategy: Strategy) {
       activeTab.value = "queue"
       showToast(
         dispatchedPostIds.length > 1
-          ? `Queued ${dispatchedPostIds.length} publish tasks. Status is now Running.`
-          : "Publish task queued. Status is now Running."
+          ? `Queued ${dispatchedPostIds.length} publish tasks.`
+          : "Publish task queued."
       )
     } else if (strategy === "queue") {
       activeTab.value = "queue"
@@ -1390,7 +1390,7 @@ async function publishNow(postId: string) {
     const post = await apiFetch<Post>(`/posts/${postId}/publish_now/`, { method: "POST", body: {} })
     mergePosts([post])
     activeTab.value = "queue"
-    showToast("Publish task queued. Status is now Running.")
+    showToast("Publish task queued.")
   } catch (e: any) {
     showToast(extractApiError(e, "Failed to publish"), "error")
   } finally {
