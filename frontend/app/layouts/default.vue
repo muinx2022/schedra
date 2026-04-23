@@ -193,7 +193,7 @@ watch(() => route.fullPath, () => {
       </Teleport>
     </template>
 
-    <header v-else class="topbar">
+    <header v-else class="topbar topbar-marketing">
       <NuxtLink to="/" class="brand">
         <span class="brand-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -207,23 +207,35 @@ watch(() => route.fullPath, () => {
         </span>
         Schedra
       </NuxtLink>
-      <nav class="nav">
-        <NuxtLink to="/">Home</NuxtLink>
-        <NuxtLink
-          v-for="option in themeOptions"
-          :key="option"
-          to="#"
-          class="theme-link"
-          :class="{ active: themePreference === option }"
-          @click.prevent="setPreference(option)"
-        >
-          {{ option }}
-        </NuxtLink>
-        <ClientOnly>
-          <NuxtLink v-if="!session.authenticated" to="/login">Login</NuxtLink>
-          <NuxtLink v-else to="/app">Workspace</NuxtLink>
-        </ClientOnly>
+      <nav class="nav nav-marketing" aria-label="Marketing">
+        <NuxtLink to="/#buf-features">Features</NuxtLink>
+        <NuxtLink to="/#buf-channels">Channels</NuxtLink>
+        <NuxtLink to="/#buf-pricing">Pricing</NuxtLink>
       </nav>
+      <div class="topbar-marketing-right">
+        <div class="theme-switcher" role="group" aria-label="Theme">
+          <NuxtLink
+            v-for="option in themeOptions"
+            :key="option"
+            to="#"
+            class="theme-link"
+            :class="{ active: themePreference === option }"
+            @click.prevent="setPreference(option)"
+          >
+            {{ option }}
+          </NuxtLink>
+        </div>
+        <ClientOnly>
+          <template v-if="!session.authenticated">
+            <NuxtLink class="btn secondary topbar-btn-ghost" to="/login">Log in</NuxtLink>
+            <NuxtLink class="btn topbar-btn-primary" to="/register">Get started free</NuxtLink>
+          </template>
+          <template v-else>
+            <NuxtLink class="btn secondary topbar-btn-ghost" to="/app">Workspace</NuxtLink>
+            <NuxtLink class="btn topbar-btn-primary" to="/app/posts">Open publishing</NuxtLink>
+          </template>
+        </ClientOnly>
+      </div>
     </header>
 
     <main :class="isApp ? 'app-main' : ''">
@@ -398,6 +410,86 @@ watch(() => route.fullPath, () => {
 .mobile-bottom-nav,
 .mobile-drawer-overlay {
   display: none;
+}
+
+.topbar-marketing {
+  flex-wrap: wrap;
+}
+
+.topbar-marketing .brand {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.nav-marketing {
+  flex: 1;
+  justify-content: center;
+  gap: 28px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nav-marketing a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.nav-marketing a:hover,
+.nav-marketing a.router-link-active {
+  color: var(--ink);
+}
+
+.topbar-marketing-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.theme-switcher .theme-link {
+  font-size: 12px;
+  padding: 4px 7px;
+}
+
+.topbar-btn-ghost {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+}
+
+.topbar-btn-primary {
+  padding: 8px 18px !important;
+  font-size: 14px !important;
+  border-color: var(--brand-fill) !important;
+  background: var(--brand-fill) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 20px rgba(31, 75, 57, 0.25);
+}
+
+.topbar-btn-primary:hover:not(:disabled) {
+  background: var(--brand-fill-hover) !important;
+  border-color: var(--brand-fill-hover) !important;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1040px) {
+  .nav-marketing {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    border-top: 1px solid var(--line-soft);
+    margin-top: 4px;
+    padding-top: 12px;
+  }
 }
 
 @media (max-width: 900px) {

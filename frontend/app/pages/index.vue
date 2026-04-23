@@ -1,443 +1,436 @@
 <template>
-  <div class="home">
-
-    <!-- ── HERO ─────────────────────────────────────── -->
-    <section class="hp-hero">
-      <div class="hp-hero-inner">
-        <span class="hp-eyebrow">Social media publishing — simplified</span>
-        <h1 class="hp-headline">Your social media workspace</h1>
-        <p class="hp-subline">
-          Plan content, schedule posts, and grow your audience —
-          without the chaos.
-        </p>
-        <div class="hp-cta-row">
-          <NuxtLink class="btn hp-cta-primary" to="/register">Get started free</NuxtLink>
-          <NuxtLink class="btn secondary" to="/login">Sign in</NuxtLink>
-        </div>
-        <p class="hp-trust">No credit card needed · Free to get started</p>
-      </div>
-
-      <div class="hp-hero-visual">
-        <div class="hp-mock-shell">
-          <div class="hp-mock-topbar">
-            <div class="hp-mock-dot r"></div>
-            <div class="hp-mock-dot y"></div>
-            <div class="hp-mock-dot g"></div>
-          </div>
-          <div class="hp-mock-body">
-            <div class="hp-mock-sidebar">
-              <div class="hp-mock-nav-item active"></div>
-              <div class="hp-mock-nav-item"></div>
-              <div class="hp-mock-nav-item"></div>
-              <div class="hp-mock-nav-item"></div>
-              <div class="hp-mock-nav-item"></div>
-            </div>
-            <div class="hp-mock-content">
-              <div class="hp-mock-card"></div>
-              <div class="hp-mock-card short"></div>
-              <div class="hp-mock-card"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── FEATURE 1 — IDEAS ─────────────────────────── -->
-    <section class="hp-feature">
-      <div class="hp-feature-text">
-        <span class="hp-feature-label">Ideas</span>
-        <h2>Capture ideas before they slip away</h2>
-        <p class="muted">
-          Keep a running board of content ideas organised by status —
-          Inbox, Planned, and Ready. Move cards through your workflow
-          as ideas become posts.
-        </p>
-        <NuxtLink to="/register" class="hp-link">Start capturing ideas &rarr;</NuxtLink>
-      </div>
-
-      <div class="hp-feature-visual accent-green">
-        <div class="hp-feature-card-group">
-          <div class="hp-fcard">
-            <div class="hp-fcard-dot"></div>
-            <div class="hp-fcard-lines">
-              <div class="hp-line w80"></div>
-              <div class="hp-line w55 muted-line"></div>
-            </div>
-            <div class="hp-fcard-tag">Planned</div>
-          </div>
-          <div class="hp-fcard">
-            <div class="hp-fcard-dot"></div>
-            <div class="hp-fcard-lines">
-              <div class="hp-line w65"></div>
-              <div class="hp-line w40 muted-line"></div>
-            </div>
-            <div class="hp-fcard-tag ready">Ready</div>
-          </div>
-          <div class="hp-fcard">
-            <div class="hp-fcard-dot"></div>
-            <div class="hp-fcard-lines">
-              <div class="hp-line w90"></div>
-              <div class="hp-line w50 muted-line"></div>
-            </div>
-            <div class="hp-fcard-tag">Inbox</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── FEATURE 2 — QUEUE (reversed) ─────────────── -->
-    <section class="hp-feature reverse">
-      <div class="hp-feature-text">
-        <span class="hp-feature-label">Queue</span>
-        <h2>Schedule posts with a click</h2>
-        <p class="muted">
-          Fill your queue with scheduled content across channels.
-          Each channel runs on its own publishing rhythm — set it
-          up once and let it run.
-        </p>
-        <NuxtLink to="/register" class="hp-link">Set up your queue &rarr;</NuxtLink>
-      </div>
-
-      <div class="hp-feature-visual accent-blue">
-        <div class="hp-queue-mock">
-          <div class="hp-queue-row">
-            <div class="hp-queue-time">9:00 AM</div>
-            <div class="hp-queue-pill green">Scheduled</div>
-            <div class="hp-queue-bar"></div>
-          </div>
-          <div class="hp-queue-row">
-            <div class="hp-queue-time">12:00 PM</div>
-            <div class="hp-queue-pill">Draft</div>
-            <div class="hp-queue-bar short"></div>
-          </div>
-          <div class="hp-queue-row">
-            <div class="hp-queue-time">3:30 PM</div>
-            <div class="hp-queue-pill green">Scheduled</div>
-            <div class="hp-queue-bar"></div>
-          </div>
-          <div class="hp-queue-row">
-            <div class="hp-queue-time">6:00 PM</div>
-            <div class="hp-queue-pill">Draft</div>
-            <div class="hp-queue-bar short"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── FEATURE 3 — PUBLISH ──────────────────────── -->
-    <section class="hp-feature">
-      <div class="hp-feature-text">
-        <span class="hp-feature-label">Publish</span>
-        <h2>Go from draft to live in seconds</h2>
-        <p class="muted">
-          Write, preview, and publish to the connected channels your
-          team actually uses. Schedule for later or hit publish right
-          now from one workspace.
-        </p>
-        <NuxtLink to="/register" class="hp-link">Start publishing &rarr;</NuxtLink>
-      </div>
-
-      <div class="hp-feature-visual accent-orange">
-        <div class="hp-publish-mock">
-          <div class="hp-publish-editor">
-            <div class="hp-line w90"></div>
-            <div class="hp-line w70 mt8"></div>
-            <div class="hp-line w50 mt8 muted-line"></div>
-          </div>
-          <div class="hp-publish-actions">
-            <div class="hp-publish-btn-ghost">Save draft</div>
-            <div class="hp-publish-btn-primary">Publish now</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── STATS ─────────────────────────────────────── -->
-    <section class="hp-stats">
-      <div class="hp-stat">
-        <div class="hp-stat-number">3</div>
-        <div class="hp-stat-label">core workflows</div>
-      </div>
-      <div class="hp-stat">
-        <div class="hp-stat-number">1</div>
-        <div class="hp-stat-label">unified workspace</div>
-      </div>
-      <div class="hp-stat">
-        <div class="hp-stat-number">0</div>
-        <div class="hp-stat-label">credit cards needed</div>
-      </div>
-    </section>
-
-    <!-- ── CHANNELS ───────────────────────────────────── -->
-    <section class="hp-channels">
-      <h2 class="hp-section-title">Built for multi-channel publishing</h2>
-      <p class="hp-section-sub muted">
-        Connect Facebook, Instagram, LinkedIn, TikTok, YouTube, and Pinterest from one workspace.
-      </p>
-      <div class="hp-channel-badges">
-        <div class="hp-channel-badge facebook">
-          <span class="hp-channel-icon">f</span>
-          Facebook
-        </div>
-        <div class="hp-channel-badge instagram">
-          <span class="hp-channel-icon">ig</span>
-          Instagram
-        </div>
-        <div class="hp-channel-badge linkedin">
-          <span class="hp-channel-icon">in</span>
-          LinkedIn
-        </div>
-        <div class="hp-channel-badge tiktok">
-          <span class="hp-channel-icon">tt</span>
-          TikTok
-        </div>
-        <div class="hp-channel-badge youtube">
-          <span class="hp-channel-icon">yt</span>
-          YouTube
-        </div>
-        <div class="hp-channel-badge pinterest">
-          <span class="hp-channel-icon">p</span>
-          Pinterest
-        </div>
-      </div>
-    </section>
-
-    <!-- ── TESTIMONIALS ───────────────────────────────── -->
-    <section class="hp-testimonials">
-      <h2 class="hp-section-title">Built for small teams who want more signal, less noise</h2>
-      <div class="hp-testimonial-grid">
-        <div class="hp-testimonial-card">
-          <p class="hp-testimonial-quote">
-            "Finally a publishing tool that doesn't get in the way.
-            I go from idea to post in under 2 minutes."
+  <div class="buf-home">
+    <!-- Hero (Buffer-style: bold headline, supportive line, dual CTA, product visual) -->
+    <section class="buf-hero">
+      <div class="buf-hero-grid">
+        <div class="buf-hero-copy">
+          <p class="buf-eyebrow">Social media publishing — simplified</p>
+          <h1 class="buf-h1">Your social media workspace</h1>
+          <p class="buf-lede">
+            Plan content, schedule posts, and grow your audience — without the chaos.
           </p>
-          <div class="hp-testimonial-author">
-            <div class="hp-testimonial-avatar">S</div>
-            <div>
-              <div class="hp-testimonial-name">Sarah K.</div>
-              <div class="hp-testimonial-role muted">Freelance Content Creator</div>
-            </div>
+          <div class="buf-emoji-strip" aria-hidden="true">
+            <span>👏</span><span>🚀</span><span>❤️</span><span>📈</span><span>📣</span><span>💬</span><span>🗓️</span><span>🙌</span>
           </div>
-        </div>
-        <div class="hp-testimonial-card">
-          <p class="hp-testimonial-quote">
-            "The kanban idea board alone is worth it. My content
-            calendar has never been this organised."
-          </p>
-          <div class="hp-testimonial-author">
-            <div class="hp-testimonial-avatar">M</div>
-            <div>
-              <div class="hp-testimonial-name">Marcus T.</div>
-              <div class="hp-testimonial-role muted">Small Business Owner</div>
-            </div>
+          <div class="buf-hero-cta">
+            <NuxtLink class="btn buf-btn-brand" to="/register">Get started free</NuxtLink>
+            <NuxtLink class="btn secondary" to="/login">Sign in</NuxtLink>
           </div>
+          <p class="buf-trust-micro">No credit card needed · Free to get started</p>
         </div>
-        <div class="hp-testimonial-card">
-          <p class="hp-testimonial-quote">
-            "Exactly the lightweight Buffer alternative I was looking
-            for. Clean, fast, focused."
-          </p>
-          <div class="hp-testimonial-author">
-            <div class="hp-testimonial-avatar">L</div>
-            <div>
-              <div class="hp-testimonial-name">Linh N.</div>
-              <div class="hp-testimonial-role muted">Social Media Manager</div>
+        <div class="buf-hero-visual">
+          <div class="buf-mock-shell">
+            <div class="buf-mock-topbar">
+              <span class="buf-dot r" /><span class="buf-dot y" /><span class="buf-dot g" />
+            </div>
+            <div class="buf-mock-body">
+              <div class="buf-mock-side">
+                <span class="buf-nav-pill on" />
+                <span class="buf-nav-pill" />
+                <span class="buf-nav-pill" />
+                <span class="buf-nav-pill" />
+              </div>
+              <div class="buf-mock-main">
+                <div class="buf-mock-toolbar">
+                  <span class="buf-pill">Queue</span>
+                  <span class="buf-pill ghost">Calendar</span>
+                </div>
+                <div class="buf-mock-row" />
+                <div class="buf-mock-row short" />
+                <div class="buf-mock-row" />
+                <div class="buf-mock-cal">
+                  <span v-for="n in 12" :key="n" class="buf-cal-cell" :class="{ hot: n === 5 || n === 9 }" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── FINAL CTA ──────────────────────────────────── -->
-    <section class="hp-final-cta">
-      <h2 class="hp-cta-headline">Ready to simplify your social media?</h2>
-      <p class="muted">
-        Join teams using Schedra to plan, schedule, and publish content
-        — without the overhead.
-      </p>
-      <div class="hp-cta-row center">
-        <NuxtLink class="btn hp-cta-primary large" to="/register">
-          Create your free workspace
-        </NuxtLink>
+    <!-- Trust strip -->
+    <section class="buf-trust" aria-label="Highlights">
+      <p class="buf-trust-heading">Built for teams who ship content on a rhythm, not a rush</p>
+      <div class="buf-trust-grid">
+        <div class="buf-trust-cell">
+          <div class="buf-trust-num">6</div>
+          <div class="buf-trust-label">major networks</div>
+        </div>
+        <div class="buf-trust-cell">
+          <div class="buf-trust-num">1</div>
+          <div class="buf-trust-label">unified queue &amp; calendar</div>
+        </div>
+        <div class="buf-trust-cell">
+          <div class="buf-trust-num">0</div>
+          <div class="buf-trust-label">credit cards to try it</div>
+        </div>
       </div>
-      <p class="hp-trust">No credit card. Cancel anytime.</p>
     </section>
 
-    <!-- ── FOOTER ─────────────────────────────────────── -->
-    <footer class="hp-footer">
-      <div class="hp-footer-inner">
-        <NuxtLink to="/" class="hp-footer-brand">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
-            <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
-            <circle cx="17" cy="7" r="2.2" fill="currentColor"/>
-            <circle cx="17" cy="17" r="2.2" fill="currentColor"/>
-            <line x1="9" y1="11" x2="15" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            <line x1="9" y1="13" x2="15" y2="16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-          </svg>
-          Schedra
-        </NuxtLink>
-        <nav class="hp-footer-links">
+    <!-- Core features -->
+    <section id="buf-features" class="buf-block">
+      <div class="buf-section-head">
+        <h2 class="buf-h2">Core features</h2>
+        <p class="buf-subdeck muted">
+          Capture ideas, fill your queue, and publish — with a workspace that stays out of your way.
+        </p>
+      </div>
+
+      <article class="buf-feature-split">
+        <div class="buf-feature-copy">
+          <span class="buf-tag">Ideas</span>
+          <h3 class="buf-h3">Turn sparks into a pipeline</h3>
+          <p class="muted">
+            A simple board from Inbox to Planned to Ready — so nothing good disappears into a notes app.
+          </p>
+          <NuxtLink to="/register" class="buf-text-link">Start capturing ideas →</NuxtLink>
+        </div>
+        <div class="buf-feature-shot buf-shot-green">
+          <div class="buf-cards">
+            <div class="buf-mini-card"><span class="buf-dot-s" /><div class="buf-lines"><i /><i class="dim" /></div><em>Inbox</em></div>
+            <div class="buf-mini-card"><span class="buf-dot-s" /><div class="buf-lines"><i /><i class="dim" /></div><em>Planned</em></div>
+            <div class="buf-mini-card"><span class="buf-dot-s" /><div class="buf-lines"><i /><i class="dim" /></div><em class="ok">Ready</em></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="buf-feature-split rev">
+        <div class="buf-feature-copy">
+          <span class="buf-tag">Publish</span>
+          <h3 class="buf-h3">The most practical publishing flow</h3>
+          <p class="muted">
+            Draft with previews, drop into channel queues, and schedule or publish now — without tab sprawl.
+          </p>
+          <NuxtLink to="/register" class="buf-text-link">Explore publishing →</NuxtLink>
+        </div>
+        <div class="buf-feature-shot buf-shot-blue">
+          <div class="buf-queue">
+            <div class="buf-q-row"><time>9:00</time><span class="buf-badge ok">Scheduled</span><div class="buf-bar" /></div>
+            <div class="buf-q-row"><time>12:30</time><span class="buf-badge">Draft</span><div class="buf-bar sm" /></div>
+            <div class="buf-q-row"><time>4:15</time><span class="buf-badge ok">Scheduled</span><div class="buf-bar" /></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="buf-feature-split">
+        <div class="buf-feature-copy">
+          <span class="buf-tag">Workspace</span>
+          <h3 class="buf-h3">One calm surface for the whole team</h3>
+          <p class="muted">
+            Media, campaigns, analytics, and inbox — connected to the same posts your channels will receive.
+          </p>
+          <NuxtLink to="/register" class="buf-text-link">Open a workspace →</NuxtLink>
+        </div>
+        <div class="buf-feature-shot buf-shot-warm">
+          <div class="buf-editor">
+            <div class="buf-editor-lines"><i /><i /><i class="dim" /></div>
+            <div class="buf-editor-actions">
+              <span class="buf-faux">Save draft</span>
+              <span class="buf-faux primary">Publish now</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- More modules -->
+    <section class="buf-more-wrap">
+      <div class="buf-section-head tight">
+        <h2 class="buf-h2">…and so much more</h2>
+        <p class="buf-subdeck muted">Lightweight modules that match how small teams actually work.</p>
+      </div>
+      <div class="buf-more-grid">
+        <div class="buf-more-card">
+          <h4>Calendar</h4>
+          <p class="muted">See scheduled work across channels in one glance.</p>
+        </div>
+        <div class="buf-more-card">
+          <h4>Campaigns</h4>
+          <p class="muted">Group assets and fan out drafts from a single brief.</p>
+        </div>
+        <div class="buf-more-card">
+          <h4>Analytics</h4>
+          <p class="muted">Understand what shipped — and what needs attention.</p>
+        </div>
+        <div class="buf-more-card">
+          <h4>Inbox</h4>
+          <p class="muted">Triage comments without jumping between native apps.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Channels -->
+    <section id="buf-channels" class="buf-channels-wrap">
+      <div class="buf-section-head">
+        <h2 class="buf-h2">Connect your favourite accounts</h2>
+        <p class="buf-subdeck muted">
+          Facebook, Instagram, LinkedIn, TikTok, YouTube, and Pinterest — from one Schedra workspace.
+        </p>
+      </div>
+      <div class="buf-channel-row">
+        <div v-for="c in channelList" :key="c.name" class="buf-ch-pill" :class="c.cls">
+          <span class="buf-ch-ico">{{ c.abbr }}</span>
+          {{ c.name }}
+        </div>
+      </div>
+    </section>
+
+    <!-- Audiences -->
+    <section class="buf-audiences">
+      <h2 class="buf-h2 buf-center">Whoever you are, we’ve got you covered</h2>
+      <div class="buf-aud-grid">
+        <div class="buf-aud-card">
+          <h4>Creators</h4>
+          <p class="muted">Stay consistent, batch ideas, and keep queues full without burning out.</p>
+        </div>
+        <div class="buf-aud-card">
+          <h4>Small business</h4>
+          <p class="muted">One place for promos, hours, and stories — scheduled ahead of busy weeks.</p>
+        </div>
+        <div class="buf-aud-card">
+          <h4>Agencies</h4>
+          <p class="muted">A focused stack for delivery: fewer tools, clearer handoffs, reliable publishing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="buf-quotes">
+      <h2 class="buf-h2 buf-center">Loved by teams who prefer signal over noise</h2>
+      <div class="buf-quote-grid">
+        <figure class="buf-quote">
+          <blockquote>“Finally a publishing tool that doesn’t get in the way. I go from idea to post in under two minutes.”</blockquote>
+          <figcaption><span class="buf-av">S</span><div><strong>Sarah K.</strong><span class="muted">Freelance creator</span></div></figcaption>
+        </figure>
+        <figure class="buf-quote">
+          <blockquote>“The kanban idea board alone is worth it. My calendar has never been this organised.”</blockquote>
+          <figcaption><span class="buf-av">M</span><div><strong>Marcus T.</strong><span class="muted">Small business owner</span></div></figcaption>
+        </figure>
+        <figure class="buf-quote">
+          <blockquote>“Exactly the lightweight Buffer alternative I was looking for — clean, fast, focused.”</blockquote>
+          <figcaption><span class="buf-av">L</span><div><strong>Linh N.</strong><span class="muted">Social media manager</span></div></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Pricing / CTA -->
+    <section id="buf-pricing" class="buf-pricing">
+      <div class="buf-pricing-inner">
+        <h2 class="buf-h2 light">Grow your social presence with confidence</h2>
+        <p class="buf-pricing-lede">
+          Start free, invite your team when you’re ready, and scale publishing without the enterprise bloat.
+        </p>
+        <div class="buf-pricing-row">
+          <NuxtLink class="btn buf-btn-brand buf-btn-lg" to="/register">Create your free workspace</NuxtLink>
+          <NuxtLink class="btn secondary buf-btn-ghost-light" to="/login">Sign in</NuxtLink>
+        </div>
+        <p class="buf-pricing-foot">No credit card · Cancel anytime</p>
+        <ul class="buf-pricing-points">
+          <li>Free workspace to get started</li>
+          <li>Per-channel queues &amp; slots</li>
+          <li>Ideas board &amp; publishing in one app</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="buf-footer">
+      <div class="buf-footer-grid">
+        <div>
+          <NuxtLink to="/" class="buf-footer-brand">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
+              <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
+              <circle cx="17" cy="7" r="2.2" fill="currentColor"/>
+              <circle cx="17" cy="17" r="2.2" fill="currentColor"/>
+              <line x1="9" y1="11" x2="15" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9" y1="13" x2="15" y2="16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            Schedra
+          </NuxtLink>
+          <p class="muted buf-footer-tag">Plan, schedule, publish — in one calm workspace.</p>
+        </div>
+        <div>
+          <h5 class="buf-foot-h">Product</h5>
+          <NuxtLink to="/#buf-features">Features</NuxtLink>
+          <NuxtLink to="/#buf-channels">Channels</NuxtLink>
+          <NuxtLink to="/#buf-pricing">Pricing</NuxtLink>
+        </div>
+        <div>
+          <h5 class="buf-foot-h">Legal</h5>
           <NuxtLink to="/chinh-sach-rieng-tu">Chính sách quyền riêng tư</NuxtLink>
           <NuxtLink to="/quy-dinh-su-dung">Quy định sử dụng</NuxtLink>
           <NuxtLink to="/tiktok-review">TikTok integration</NuxtLink>
+        </div>
+        <div>
+          <h5 class="buf-foot-h">Account</h5>
           <NuxtLink to="/register">Bắt đầu miễn phí</NuxtLink>
           <NuxtLink to="/login">Đăng nhập</NuxtLink>
-        </nav>
-        <p class="hp-footer-copy">&copy; {{ new Date().getFullYear() }} Schedra. All rights reserved.</p>
+        </div>
       </div>
+      <p class="buf-copy">&copy; {{ new Date().getFullYear() }} Schedra. All rights reserved.</p>
     </footer>
-
   </div>
 </template>
 
+<script setup lang="ts">
+const channelList = [
+  { name: "Facebook", abbr: "f", cls: "facebook" },
+  { name: "Instagram", abbr: "ig", cls: "instagram" },
+  { name: "LinkedIn", abbr: "in", cls: "linkedin" },
+  { name: "TikTok", abbr: "tt", cls: "tiktok" },
+  { name: "YouTube", abbr: "yt", cls: "youtube" },
+  { name: "Pinterest", abbr: "p", cls: "pinterest" },
+]
+</script>
+
 <style scoped>
-.home {
-  display: flex;
-  flex-direction: column;
+.buf-home {
+  --buf-max: 1180px;
+  --buf-pad: 32px;
+  background:
+    radial-gradient(1200px 520px at 50% -8%, rgba(127, 162, 147, 0.14), transparent 55%),
+    radial-gradient(900px 400px at 100% 20%, rgba(230, 126, 34, 0.06), transparent 45%),
+    var(--bg);
 }
 
-/* ── HERO ────────────────────────────────────────────── */
-.hp-hero {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 64px;
-  align-items: center;
-  max-width: 1160px;
+.muted {
+  color: var(--muted);
+}
+
+/* Hero */
+.buf-hero {
+  max-width: var(--buf-max);
   margin: 0 auto;
-  padding: 80px 32px 96px;
+  padding: 56px var(--buf-pad) 72px;
 }
 
-.hp-hero-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.buf-hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 56px;
+  align-items: center;
 }
 
-.hp-eyebrow {
-  display: inline-block;
-  border: 1px solid var(--brand-outline);
-  border-radius: 999px;
-  padding: 4px 14px;
-  color: var(--brand);
-  font-size: 13px;
+.buf-eyebrow {
+  margin: 0 0 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  width: fit-content;
+  color: var(--brand-fill);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.hp-headline {
+.buf-h1 {
   margin: 0;
-  font-size: clamp(36px, 5vw, 58px);
+  font-size: clamp(38px, 5.2vw, 64px);
   font-weight: 900;
-  line-height: 1.06;
-  letter-spacing: -0.02em;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
   color: var(--ink);
 }
 
-.hp-subline {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.6;
+.buf-lede {
+  margin: 16px 0 0;
+  font-size: clamp(17px, 2vw, 20px);
+  line-height: 1.55;
   color: var(--muted);
-  max-width: 480px;
+  max-width: 520px;
 }
 
-.hp-cta-row {
+.buf-emoji-strip {
   display: flex;
-  align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 20px;
+  font-size: 22px;
+  opacity: 0.92;
 }
 
-.hp-cta-row.center {
-  justify-content: center;
+.buf-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
 }
 
-.hp-cta-primary {
+.buf-btn-brand {
   background: var(--brand-fill) !important;
   border-color: var(--brand-fill) !important;
   color: #fff !important;
-  padding: 12px 24px;
-  font-size: 15px;
+  padding: 12px 22px !important;
+  font-size: 15px !important;
+  box-shadow: 0 10px 28px rgba(31, 75, 57, 0.28);
 }
 
-.hp-cta-primary:hover:not(:disabled) {
+.buf-btn-brand:hover:not(:disabled) {
   background: var(--brand-fill-hover) !important;
   border-color: var(--brand-fill-hover) !important;
 }
 
-.hp-cta-primary.large {
-  padding: 14px 32px;
-  font-size: 16px;
-}
-
-.hp-trust {
-  margin: 0;
-  color: var(--muted);
+.buf-trust-micro {
+  margin: 14px 0 0;
   font-size: 13px;
+  color: var(--muted);
 }
 
-/* ── HERO VISUAL (mock UI) ───────────────────────────── */
-.hp-hero-visual {
+.buf-hero-visual {
   display: flex;
   justify-content: center;
 }
 
-.hp-mock-shell {
+.buf-mock-shell {
   width: 100%;
-  max-width: 460px;
+  max-width: 440px;
+  border-radius: 22px;
   border: 1px solid var(--line);
-  border-radius: 20px;
   background: var(--panel);
   box-shadow: var(--shadow-strong);
   overflow: hidden;
 }
 
-.hp-mock-topbar {
+.buf-mock-topbar {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  gap: 7px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--surface-muted);
 }
 
-.hp-mock-dot {
+.buf-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  display: inline-block;
 }
-.hp-mock-dot.r { background: #ff5f57; }
-.hp-mock-dot.y { background: #febc2e; }
-.hp-mock-dot.g { background: #28c840; }
+.buf-dot.r { background: #ff5f57; }
+.buf-dot.y { background: #febc2e; }
+.buf-dot.g { background: #28c840; }
 
-.hp-mock-body {
+.buf-mock-body {
   display: flex;
-  min-height: 220px;
+  min-height: 240px;
 }
 
-.hp-mock-sidebar {
-  width: 64px;
+.buf-mock-side {
+  width: 56px;
   border-right: 1px solid var(--line);
   padding: 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
 
-.hp-mock-nav-item {
+.buf-nav-pill {
   height: 8px;
   border-radius: 4px;
   background: var(--line);
 }
-
-.hp-mock-nav-item.active {
+.buf-nav-pill.on {
   background: var(--brand-fill);
-  width: 70%;
+  width: 80%;
 }
 
-.hp-mock-content {
+.buf-mock-main {
   flex: 1;
   padding: 16px;
   display: flex;
@@ -445,611 +438,734 @@
   gap: 10px;
 }
 
-.hp-mock-card {
-  height: 52px;
-  border-radius: 10px;
+.buf-mock-toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.buf-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(127, 162, 147, 0.2);
+  color: var(--brand-fill);
+}
+.buf-pill.ghost {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.buf-mock-row {
+  height: 48px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--surface-muted);
 }
-
-.hp-mock-card.short {
+.buf-mock-row.short {
   height: 36px;
+  width: 72%;
 }
 
-/* ── FEATURES ────────────────────────────────────────── */
-.hp-feature {
+.buf-mock-cal {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
-  align-items: center;
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 80px 32px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.buf-cal-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line-soft);
+}
+.buf-cal-cell.hot {
+  border-color: rgba(127, 162, 147, 0.45);
+  background: rgba(127, 162, 147, 0.12);
+}
+
+/* Trust */
+.buf-trust {
   border-top: 1px solid var(--line-soft);
-  width: 100%;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-muted);
+  padding: 48px var(--buf-pad);
+  text-align: center;
 }
 
-.hp-feature.reverse {
-  direction: rtl;
+.buf-trust-heading {
+  margin: 0 auto 28px;
+  max-width: 640px;
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
 }
 
-.hp-feature.reverse > * {
-  direction: ltr;
+.buf-trust-grid {
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
 }
 
-.hp-feature-label {
-  display: inline-block;
-  margin-bottom: 8px;
-  border-radius: 999px;
-  padding: 3px 12px;
-  background: rgba(127, 162, 147, 0.14);
-  color: var(--brand);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.buf-trust-cell {
+  padding: 20px 16px;
+  border-right: 1px solid var(--line-soft);
+}
+.buf-trust-cell:last-child {
+  border-right: 0;
 }
 
-.hp-feature-text {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.buf-trust-num {
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--brand-fill);
+  line-height: 1;
 }
 
-.hp-feature-text h2 {
+.buf-trust-label {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Sections */
+.buf-block {
+  max-width: var(--buf-max);
+  margin: 0 auto;
+  padding: 88px var(--buf-pad) 40px;
+}
+
+.buf-section-head {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 56px;
+}
+.buf-section-head.tight {
+  margin-bottom: 32px;
+}
+
+.buf-h2 {
   margin: 0;
-  font-size: clamp(26px, 3.5vw, 38px);
-  font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   color: var(--ink);
 }
 
-.hp-feature-text p {
+.buf-h2.light {
+  color: #f8fffb;
+}
+
+.buf-h2.buf-center {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.buf-subdeck {
+  margin: 14px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.buf-feature-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  padding: 72px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.buf-feature-split.rev {
+  direction: rtl;
+}
+.buf-feature-split.rev > * {
+  direction: ltr;
+}
+
+.buf-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-fill);
+  margin-bottom: 10px;
+}
+
+.buf-h3 {
   margin: 0;
+  font-size: clamp(24px, 2.8vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.buf-feature-copy p {
+  margin: 14px 0 0;
   font-size: 16px;
   line-height: 1.65;
 }
 
-.hp-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--brand-fill);
-  font-size: 14px;
+.buf-text-link {
+  display: inline-block;
+  margin-top: 18px;
   font-weight: 700;
+  font-size: 15px;
+  color: var(--brand-fill);
   text-decoration: none;
-  transition: color 0.12s;
 }
-
-.hp-link:hover {
+.buf-text-link:hover {
   color: var(--brand-fill-hover);
 }
 
-/* ── FEATURE VISUALS ─────────────────────────────────── */
-.hp-feature-visual {
+.buf-feature-shot {
   border-radius: 24px;
-  padding: 36px;
+  padding: 40px 36px;
   min-height: 260px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.hp-feature-visual.accent-green {
-  background: linear-gradient(140deg, rgba(127, 162, 147, 0.12), rgba(63, 139, 110, 0.08));
-  border: 1px solid rgba(127, 162, 147, 0.2);
+.buf-shot-green {
+  background: linear-gradient(145deg, rgba(127, 162, 147, 0.14), rgba(31, 75, 57, 0.06));
+  border: 1px solid rgba(127, 162, 147, 0.22);
 }
 
-.hp-feature-visual.accent-blue {
-  background: linear-gradient(140deg, rgba(59, 130, 246, 0.08), rgba(29, 78, 216, 0.05));
-  border: 1px solid rgba(59, 130, 246, 0.15);
+.buf-shot-blue {
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(29, 78, 216, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.18);
 }
 
-.hp-feature-visual.accent-orange {
-  background: linear-gradient(140deg, rgba(230, 126, 34, 0.1), rgba(180, 90, 15, 0.06));
-  border: 1px solid rgba(230, 126, 34, 0.18);
+.buf-shot-warm {
+  background: linear-gradient(145deg, rgba(230, 126, 34, 0.12), rgba(180, 90, 15, 0.05));
+  border: 1px solid rgba(230, 126, 34, 0.2);
 }
 
-/* Idea cards mock */
-.hp-feature-card-group {
+.buf-cards {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
 }
 
-.hp-fcard {
+.buf-mini-card {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
   border-radius: 14px;
+  border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow-soft);
 }
 
-.hp-fcard-dot {
+.buf-dot-s {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-fill);
   flex-shrink: 0;
 }
 
-.hp-fcard-lines {
+.buf-lines {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
-.hp-line {
+.buf-lines i {
+  display: block;
   height: 7px;
   border-radius: 4px;
   background: var(--line);
+  width: 88%;
+}
+.buf-lines i.dim {
+  width: 55%;
+  opacity: 0.55;
 }
 
-.hp-line.muted-line { opacity: 0.5; }
-.hp-line.w90 { width: 90%; }
-.hp-line.w80 { width: 80%; }
-.hp-line.w70 { width: 70%; }
-.hp-line.w65 { width: 65%; }
-.hp-line.w55 { width: 55%; }
-.hp-line.w50 { width: 50%; }
-.hp-line.w40 { width: 40%; }
-.hp-line.mt8 { margin-top: 8px; }
-
-.hp-fcard-tag {
+.buf-mini-card em {
+  font-style: normal;
   font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
+  font-weight: 800;
+  padding: 3px 9px;
   border-radius: 999px;
   background: var(--surface-muted);
   color: var(--muted);
-  white-space: nowrap;
 }
-
-.hp-fcard-tag.ready {
-  background: rgba(127, 162, 147, 0.18);
+.buf-mini-card em.ok {
+  background: rgba(127, 162, 147, 0.2);
   color: var(--brand-fill);
 }
 
-/* Queue mock */
-.hp-queue-mock {
+.buf-queue {
+  width: 100%;
+  max-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
-  max-width: 340px;
 }
 
-.hp-queue-row {
+.buf-q-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
-.hp-queue-time {
+.buf-q-row time {
+  width: 52px;
   font-size: 12px;
   color: var(--muted);
-  width: 64px;
   flex-shrink: 0;
 }
-
-.hp-queue-pill {
+.buf-badge {
   font-size: 11px;
-  font-weight: 700;
-  padding: 2px 10px;
+  font-weight: 800;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--surface-muted);
   color: var(--muted);
-  white-space: nowrap;
 }
-
-.hp-queue-pill.green {
-  background: rgba(127, 162, 147, 0.18);
+.buf-badge.ok {
+  background: rgba(127, 162, 147, 0.2);
   color: var(--brand-fill);
 }
-
-.hp-queue-bar {
+.buf-bar {
   flex: 1;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
   background: var(--panel);
-  border: 1px solid var(--line);
+}
+.buf-bar.sm {
+  flex: 0.55;
 }
 
-.hp-queue-bar.short {
-  flex: 0.5;
-}
-
-/* Publish mock */
-.hp-publish-mock {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.buf-editor {
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
   padding: 20px;
+  border-radius: 16px;
   border: 1px solid var(--line);
-  border-radius: 18px;
   background: var(--panel);
   box-shadow: var(--shadow-soft);
 }
 
-.hp-publish-editor {
+.buf-editor-lines {
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
+.buf-editor-lines i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+}
+.buf-editor-lines i:nth-child(1) { width: 100%; }
+.buf-editor-lines i:nth-child(2) { width: 78%; }
+.buf-editor-lines i:nth-child(3) { width: 52%; opacity: 0.5; }
 
-.hp-publish-actions {
+.buf-editor-actions {
   display: flex;
-  gap: 10px;
-  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+  align-items: center;
 }
-
-.hp-publish-btn-ghost {
+.buf-faux {
   font-size: 13px;
   color: var(--muted);
-  cursor: default;
 }
-
-.hp-publish-btn-primary {
-  font-size: 13px;
-  font-weight: 700;
+.buf-faux.primary {
+  font-weight: 800;
+  color: #fff;
+  background: var(--brand-fill);
   padding: 8px 16px;
   border-radius: 999px;
-  background: var(--brand-fill);
-  color: #fff;
-  cursor: default;
 }
 
-/* ── STATS ───────────────────────────────────────────── */
-.hp-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-muted);
-  width: 100%;
-}
-
-.hp-stat {
-  padding: 52px 32px;
-  text-align: center;
-  border-right: 1px solid var(--line-soft);
-}
-
-.hp-stat:last-child {
-  border-right: 0;
-}
-
-.hp-stat-number {
-  font-size: 56px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--brand-fill);
-}
-
-.hp-stat-label {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* ── CHANNELS ────────────────────────────────────────── */
-.hp-channels {
-  max-width: 800px;
+/* More grid */
+.buf-more-wrap {
+  max-width: var(--buf-max);
   margin: 0 auto;
-  padding: 80px 32px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  width: 100%;
+  padding: 40px var(--buf-pad) 80px;
 }
 
-.hp-section-title {
-  margin: 0;
-  font-size: clamp(24px, 3vw, 36px);
+.buf-more-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.buf-more-card {
+  padding: 22px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.buf-more-card h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: -0.015em;
-  line-height: 1.15;
   color: var(--ink);
 }
 
-.hp-section-sub {
-  margin: -8px 0 0;
-  font-size: 16px;
-  line-height: 1.6;
+.buf-more-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
-.hp-channel-badges {
+/* Channels */
+.buf-channels-wrap {
+  max-width: var(--buf-max);
+  margin: 0 auto;
+  padding: 0 var(--buf-pad) 88px;
+  text-align: center;
+}
+
+.buf-channel-row {
   display: flex;
-  gap: 14px;
   flex-wrap: wrap;
   justify-content: center;
+  gap: 14px;
+  margin-top: 8px;
 }
 
-.hp-channel-badge {
-  display: flex;
+.buf-ch-pill {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 12px 20px;
-  border: 1px solid var(--line);
   border-radius: 16px;
+  border: 1px solid var(--line);
   background: var(--panel);
-  box-shadow: var(--shadow-soft);
-  font-size: 14px;
   font-weight: 700;
+  font-size: 14px;
   color: var(--ink);
+  box-shadow: var(--shadow-soft);
 }
 
-.hp-channel-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+.buf-ch-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   color: #fff;
 }
 
-.hp-channel-badge.facebook .hp-channel-icon {
-  background: #1877f2;
+.buf-ch-pill.facebook .buf-ch-ico { background: #1877f2; }
+.buf-ch-pill.instagram .buf-ch-ico {
+  background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #bc1888);
 }
+.buf-ch-pill.linkedin .buf-ch-ico { background: #0a66c2; }
+.buf-ch-pill.tiktok .buf-ch-ico { background: #111; }
+.buf-ch-pill.youtube .buf-ch-ico { background: #f00; }
+.buf-ch-pill.pinterest .buf-ch-ico { background: #e60023; }
 
-.hp-channel-badge.instagram .hp-channel-icon {
-  background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-}
-
-.hp-channel-badge.linkedin .hp-channel-icon {
-  background: #0a66c2;
-}
-
-.hp-channel-badge.tiktok .hp-channel-icon {
-  background: #111111;
-}
-
-.hp-channel-badge.youtube .hp-channel-icon {
-  background: #ff0000;
-}
-
-.hp-channel-badge.pinterest .hp-channel-icon {
-  background: #e60023;
-}
-
-/* ── TESTIMONIALS ────────────────────────────────────── */
-.hp-testimonials {
-  max-width: 1160px;
+/* Audiences */
+.buf-audiences {
+  max-width: var(--buf-max);
   margin: 0 auto;
-  padding: 80px 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 40px;
-  border-top: 1px solid var(--line-soft);
-  text-align: center;
-  width: 100%;
+  padding: 0 var(--buf-pad) 88px;
 }
 
-.hp-testimonial-grid {
+.buf-aud-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  width: 100%;
-  text-align: left;
+  margin-top: 36px;
 }
 
-.hp-testimonial-card {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 28px;
-  border: 1px solid var(--line);
+.buf-aud-card {
+  padding: 28px 24px;
   border-radius: 20px;
+  border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow-soft);
 }
 
-.hp-testimonial-quote {
+.buf-aud-card h4 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.buf-aud-card p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Quotes */
+.buf-quotes {
+  max-width: var(--buf-max);
+  margin: 0 auto;
+  padding: 0 var(--buf-pad) 88px;
+}
+
+.buf-quote-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 36px;
+}
+
+.buf-quote {
+  margin: 0;
+  padding: 26px 22px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.buf-quote blockquote {
   margin: 0;
   font-size: 15px;
   line-height: 1.65;
   color: var(--ink);
-  flex: 1;
 }
 
-.hp-testimonial-author {
+.buf-quote figcaption {
   display: flex;
   align-items: center;
   gap: 12px;
+  font-size: 13px;
 }
 
-.hp-testimonial-avatar {
-  width: 38px;
-  height: 38px;
+.buf-quote figcaption strong {
+  display: block;
+  color: var(--ink);
+}
+
+.buf-av {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--brand-fill);
   color: #fff;
-  font-size: 14px;
-  font-weight: 800;
+  font-weight: 900;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
-.hp-testimonial-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
+/* Pricing CTA */
+.buf-pricing {
+  padding: 88px var(--buf-pad);
+  background: linear-gradient(135deg, #1a4d3a 0%, #13261b 48%, #1f4b39 100%);
 }
 
-.hp-testimonial-role {
-  font-size: 12px;
-}
-
-/* ── FINAL CTA ───────────────────────────────────────── */
-.hp-final-cta {
+.buf-pricing-inner {
+  max-width: 720px;
+  margin: 0 auto;
   text-align: center;
-  padding: 96px 32px 80px;
-  border-top: 1px solid var(--line-soft);
-  background: var(--surface-muted);
+}
+
+.buf-pricing-lede {
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: rgba(248, 255, 251, 0.82);
+}
+
+.buf-pricing-row {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.buf-btn-lg {
+  padding: 14px 28px !important;
+  font-size: 16px !important;
+}
+
+.buf-btn-ghost-light {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #f0faf5 !important;
+}
+
+.buf-btn-ghost-light:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.buf-pricing-foot {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: rgba(248, 255, 251, 0.65);
+}
+
+.buf-pricing-points {
+  list-style: none;
+  padding: 28px 0 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  justify-content: center;
+  color: rgba(248, 255, 251, 0.78);
+  font-size: 14px;
+}
+
+.buf-pricing-points li {
+  padding-left: 18px;
+  position: relative;
+}
+.buf-pricing-points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(127, 162, 147, 0.95);
+}
+
+/* Footer */
+.buf-footer {
+  border-top: 1px solid var(--line-soft);
+  background: var(--panel);
+  padding: 48px var(--buf-pad) 28px;
+}
+
+.buf-footer-grid {
+  max-width: var(--buf-max);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 32px;
+}
+
+.buf-footer-brand {
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
-  width: 100%;
-}
-
-.hp-cta-headline {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 46px);
+  gap: 8px;
   font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 17px;
   color: var(--ink);
-  max-width: 680px;
+  text-decoration: none;
 }
 
-.hp-final-cta p.muted {
-  margin: 0;
-  font-size: 16px;
-  max-width: 480px;
+.buf-footer-tag {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 260px;
 }
 
-/* ── RESPONSIVE ──────────────────────────────────────── */
-@media (max-width: 900px) {
-  .hp-hero,
-  .hp-feature {
+.buf-foot-h {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.buf-footer-grid a {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.buf-footer-grid a:hover {
+  color: var(--ink);
+}
+
+.buf-copy {
+  max-width: var(--buf-max);
+  margin: 36px auto 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .buf-hero-grid {
     grid-template-columns: 1fr;
     gap: 40px;
-    padding: 56px 20px;
   }
 
-  .hp-feature.reverse {
+  .buf-feature-split,
+  .buf-feature-split.rev {
+    grid-template-columns: 1fr;
     direction: ltr;
+    padding: 48px 0;
+    gap: 28px;
   }
 
-  .hp-feature-visual {
-    padding: 28px;
-    min-height: auto;
-  }
-
-  .hp-stats {
+  .buf-trust-grid {
     grid-template-columns: 1fr;
   }
 
-  .hp-stat {
+  .buf-trust-cell {
     border-right: 0;
     border-bottom: 1px solid var(--line-soft);
-    padding: 36px 24px;
   }
-
-  .hp-stat:last-child {
+  .buf-trust-cell:last-child {
     border-bottom: 0;
   }
 
-  .hp-channels,
-  .hp-testimonials {
-    padding: 60px 20px;
+  .buf-more-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .hp-testimonial-grid {
+  .buf-aud-grid,
+  .buf-quote-grid {
     grid-template-columns: 1fr;
   }
 
-  .hp-final-cta {
-    padding: 72px 20px 60px;
+  .buf-footer-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 520px) {
-  .hp-hero {
-    padding: 40px 16px 56px;
+@media (max-width: 560px) {
+  .buf-home {
+    --buf-pad: 18px;
   }
 
-  .hp-cta-row {
+  .buf-hero-cta,
+  .buf-pricing-row {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .hp-cta-row .btn {
-    text-align: center;
+  .buf-more-grid {
+    grid-template-columns: 1fr;
   }
 
-  .hp-channel-badges {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-/* ── FOOTER ──────────────────────────────────────────── */
-.hp-footer {
-  border-top: 1px solid var(--line-soft);
-  background: var(--panel);
-  width: 100%;
-}
-
-.hp-footer-inner {
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 32px 32px 28px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.hp-footer-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-
-.hp-footer-links {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.hp-footer-links a {
-  font-size: 13px;
-  color: var(--muted);
-  transition: color 0.12s;
-}
-
-.hp-footer-links a:hover {
-  color: var(--ink);
-}
-
-.hp-footer-copy {
-  margin: 0 0 0 auto;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-@media (max-width: 640px) {
-  .hp-footer-inner {
-    padding: 24px 16px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .hp-footer-copy {
-    margin: 0;
+  .buf-footer-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
