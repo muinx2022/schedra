@@ -8,6 +8,22 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   css: ["~/assets/main.css"],
+  modules: ["@nuxtjs/i18n"],
+  i18n: {
+    strategy: "prefix",
+    defaultLocale: "en",
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: "schedra_locale",
+      redirectOn: "root",
+    },
+    locales: [
+      { code: "en", iso: "en-US", name: "English", file: "en.json" },
+      { code: "vi", iso: "vi-VN", name: "Tieng Viet", file: "vi.json" },
+    ],
+    lazy: true,
+    langDir: "locales",
+  },
   app: {
     head: {
       link: [

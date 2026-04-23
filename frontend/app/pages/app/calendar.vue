@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const intlLocale = useIntlLocale()
+const { t } = useI18n()
 
 type Post = {
   id: string
@@ -86,7 +88,7 @@ function sameDay(a: Date, b: Date) {
 
 function accountName(post: Post) {
   const id = post.targets[0]?.social_account
-  return accounts.value.find((account) => account.id === id)?.display_name || "No page"
+  return accounts.value.find((account) => account.id === id)?.display_name || t("calendar.no_page")
 }
 
 function editLink(post: Post) {
@@ -101,13 +103,13 @@ function editLink(post: Post) {
 }
 
 function timeLabel(post: Post) {
-  if (!post.scheduled_at) return "Unscheduled"
-  return new Date(post.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  if (!post.scheduled_at) return t("calendar.unscheduled")
+  return new Date(post.scheduled_at).toLocaleTimeString(intlLocale.value, { hour: "numeric", minute: "2-digit" })
 }
 
 function fullDateLabel(value?: string | null) {
-  if (!value) return "Unscheduled"
-  return new Date(value).toLocaleString("en-US", {
+  if (!value) return t("calendar.unscheduled")
+  return new Date(value).toLocaleString(intlLocale.value, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -118,7 +120,7 @@ function fullDateLabel(value?: string | null) {
 
 function postTitle(post: Post) {
   const text = post.caption_text?.trim()
-  if (!text) return "Untitled post"
+  if (!text) return t("calendar.untitled_post")
   return text.length > 92 ? `${text.slice(0, 92)}...` : text
 }
 
@@ -133,21 +135,21 @@ function statusTone(status: string) {
 
 <template>
   <div class="calendar-page">
-    <section class="calendar-hero">
-      <div>
-        <p class="calendar-kicker">Publishing calendar</p>
-        <h1>Weekly schedule and history</h1>
-        <p class="calendar-subtitle">
-          See what is queued next, what has a locked schedule, and jump straight back into the publishing workspace.
+    <section class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div class="space-y-1">
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("calendar.kicker") }}</p>
+        <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("calendar.title") }}</h1>
+        <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          {{ t("calendar.subtitle") }}
         </p>
       </div>
       <div class="calendar-summary">
         <div>
-          <span>Upcoming</span>
+          <span>{{ t("calendar.summary.upcoming") }}</span>
           <strong>{{ scheduledUpcoming.length }}</strong>
         </div>
         <div>
-          <span>Published</span>
+          <span>{{ t("calendar.summary.published") }}</span>
           <strong>{{ history.filter((post) => post.delivery_status === "published").length }}</strong>
         </div>
       </div>
@@ -157,16 +159,16 @@ function statusTone(status: string) {
       <article class="calendar-panel calendar-panel-wide">
         <div class="calendar-panel-head">
           <div>
-            <p class="calendar-section-label">This week</p>
-            <h2>Upcoming timeline</h2>
+            <p class="calendar-section-label">{{ t("calendar.sections.this_week") }}</p>
+            <h2>{{ t("calendar.sections.upcoming_timeline") }}</h2>
           </div>
         </div>
 
         <div class="week-grid">
           <div v-for="day in weekDays" :key="day.date.toISOString()" class="day-column">
             <div class="day-head">
-              <strong>{{ day.date.toLocaleDateString("en-US", { weekday: "short" }) }}</strong>
-              <span>{{ day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) }}</span>
+              <strong>{{ day.date.toLocaleDateString(intlLocale, { weekday: "short" }) }}</strong>
+              <span>{{ day.date.toLocaleDateString(intlLocale, { month: "short", day: "numeric" }) }}</span>
             </div>
 
             <div v-if="day.items.length" class="day-cards">
@@ -176,11 +178,11 @@ function statusTone(status: string) {
                 <div class="timeline-meta">
                   <span>{{ accountName(post) }}</span>
                   <span>{{ timeLabel(post) }}</span>
-                  <span>{{ post.media_items.length }} media</span>
+                  <span>{{ t("calendar.media_count", { count: post.media_items.length }) }}</span>
                 </div>
               </NuxtLink>
             </div>
-            <div v-else class="day-empty">No posts</div>
+            <div v-else class="day-empty">{{ t("calendar.day_empty") }}</div>
           </div>
         </div>
       </article>
@@ -188,8 +190,8 @@ function statusTone(status: string) {
       <article class="calendar-panel">
         <div class="calendar-panel-head">
           <div>
-            <p class="calendar-section-label">Queue health</p>
-            <h2>Next actions</h2>
+            <p class="calendar-section-label">{{ t("calendar.sections.queue_health") }}</p>
+            <h2>{{ t("calendar.sections.next_actions") }}</h2>
           </div>
         </div>
 
@@ -198,15 +200,15 @@ function statusTone(status: string) {
             <strong>{{ postTitle(post) }}</strong>
             <span>{{ fullDateLabel(post.scheduled_at) }}</span>
           </NuxtLink>
-          <div v-if="!upcoming.length" class="calendar-empty">Nothing queued or scheduled yet.</div>
+          <div v-if="!upcoming.length" class="calendar-empty">{{ t("calendar.empty_queue") }}</div>
         </div>
       </article>
 
       <article class="calendar-panel calendar-panel-wide">
         <div class="calendar-panel-head">
           <div>
-            <p class="calendar-section-label">History</p>
-            <h2>Published and delivery results</h2>
+            <p class="calendar-section-label">{{ t("calendar.sections.history") }}</p>
+            <h2>{{ t("calendar.sections.published_results") }}</h2>
           </div>
         </div>
 
@@ -222,7 +224,7 @@ function statusTone(status: string) {
             </div>
           </NuxtLink>
         </div>
-        <div v-else class="calendar-empty">No published history yet.</div>
+        <div v-else class="calendar-empty">{{ t("calendar.empty_history") }}</div>
       </article>
     </section>
   </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const localePath = useLocalePath()
 const form = reactive({ email: "" })
 const error = ref("")
 const message = ref("")
@@ -58,7 +59,7 @@ async function submit() {
               </p>
             </div>
             <NuxtLink
-              to="/login"
+              :to="localePath('/login')"
               class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-white text-[var(--muted)] transition hover:border-[#8a95a3] hover:text-[var(--ink)]"
               title="Back to login"
             >

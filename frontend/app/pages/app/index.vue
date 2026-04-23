@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const localePath = useLocalePath()
+const intlLocale = useIntlLocale()
 
 type Idea = {
   id: number
@@ -196,7 +198,7 @@ const quickLinks = [
 
 function formatDateTime(value?: string | null) {
   if (!value) return "Unscheduled"
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -206,7 +208,7 @@ function formatDateTime(value?: string | null) {
 
 function formatDate(value?: string | null) {
   if (!value) return "No date"
-  return new Date(value).toLocaleDateString("en-US", {
+  return new Date(value).toLocaleDateString(intlLocale.value, {
     month: "short",
     day: "numeric",
   })
@@ -256,8 +258,8 @@ function activeQueueSlots(account: Account) {
         </p>
 
         <div class="dashboard-hero-actions">
-          <NuxtLink class="btn" to="/app/posts">Open publishing</NuxtLink>
-          <NuxtLink class="btn secondary dashboard-ghost-btn" to="/app/ideas">Review ideas</NuxtLink>
+          <NuxtLink class="btn" :to="localePath('/app/posts')">Open publishing</NuxtLink>
+          <NuxtLink class="btn secondary dashboard-ghost-btn" :to="localePath('/app/ideas')">Review ideas</NuxtLink>
         </div>
       </div>
 
@@ -315,7 +317,7 @@ function activeQueueSlots(account: Account) {
           <NuxtLink
             v-for="link in quickLinks"
             :key="link.to"
-            :to="link.to"
+            :to="localePath(link.to)"
             class="dashboard-action-card"
           >
             <strong>{{ link.title }}</strong>
@@ -348,7 +350,7 @@ function activeQueueSlots(account: Account) {
             <p class="dashboard-section-label">Channels</p>
             <h2>Connected destinations</h2>
           </div>
-          <NuxtLink to="/app/settings" class="dashboard-text-link">Manage</NuxtLink>
+          <NuxtLink :to="localePath('/app/settings')" class="dashboard-text-link">Manage</NuxtLink>
         </div>
 
         <div v-if="accounts.length" class="dashboard-channel-list">
@@ -374,7 +376,7 @@ function activeQueueSlots(account: Account) {
             <p class="dashboard-section-label">Recent drafts</p>
             <h2>Needs polish</h2>
           </div>
-          <NuxtLink to="/app/posts?tab=drafts" class="dashboard-text-link">Open drafts</NuxtLink>
+          <NuxtLink :to="localePath('/app/posts') + '?tab=drafts'" class="dashboard-text-link">Open drafts</NuxtLink>
         </div>
 
         <div v-if="recentDrafts.length" class="dashboard-list">
@@ -394,7 +396,7 @@ function activeQueueSlots(account: Account) {
             <p class="dashboard-section-label">Media library</p>
             <h2>Latest uploads</h2>
           </div>
-          <NuxtLink to="/app/media" class="dashboard-text-link">Open library</NuxtLink>
+          <NuxtLink :to="localePath('/app/media')" class="dashboard-text-link">Open library</NuxtLink>
         </div>
 
         <div v-if="recentAssets.length" class="dashboard-list">

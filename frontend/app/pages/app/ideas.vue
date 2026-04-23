@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const { t } = useI18n()
+const localePath = useLocalePath()
 
 type Idea = {
   id: number
@@ -11,12 +13,12 @@ type Idea = {
 }
 
 const columns = ["unassigned", "todo", "in_progress", "done"] as const
-const labels: Record<(typeof columns)[number], string> = {
-  unassigned: "Unassigned",
-  todo: "Todo",
-  in_progress: "In Progress",
-  done: "Done",
-}
+const labels = computed<Record<(typeof columns)[number], string>>(() => ({
+  unassigned: t("ideas.columns.unassigned"),
+  todo: t("ideas.columns.todo"),
+  in_progress: t("ideas.columns.in_progress"),
+  done: t("ideas.columns.done"),
+}))
 
 const showModal = ref(false)
 const saving = ref(false)
@@ -40,7 +42,7 @@ async function loadIdeas() {
   try {
     ideas.value = await apiFetch<Idea[]>("/ideas/")
   } catch (error: any) {
-    submitError.value = extractApiError(error, "Could not load ideas.")
+    submitError.value = extractApiError(error, t("ideas.errors.load_failed"))
   } finally {
     loading.value = false
   }
@@ -126,7 +128,7 @@ async function saveIdea() {
     closeModal()
     await loadIdeas()
   } catch (error: any) {
-    submitError.value = extractApiError(error, "Could not save idea.")
+    submitError.value = extractApiError(error, t("ideas.errors.save_failed"))
   } finally {
     saving.value = false
   }
@@ -134,7 +136,7 @@ async function saveIdea() {
 
 async function deleteIdea(idea: Idea) {
   if (deletingId.value === idea.id) return
-  if (!confirm(`Delete "${idea.title}"?`)) return
+  if (!confirm(t("ideas.confirm_delete", { title: idea.title }))) return
 
   deletingId.value = idea.id
   openMenuId.value = null
@@ -142,7 +144,7 @@ async function deleteIdea(idea: Idea) {
     await apiFetch(`/ideas/${idea.id}/`, { method: "DELETE" })
     await loadIdeas()
   } catch (error: any) {
-    submitError.value = extractApiError(error, "Could not delete idea.")
+    submitError.value = extractApiError(error, t("ideas.errors.delete_failed"))
   } finally {
     deletingId.value = null
   }
@@ -154,9 +156,9 @@ async function convertToPost(idea: Idea) {
   openMenuId.value = null
   try {
     const post = await apiFetch<{ id: string }>(`/posts/from-idea/${idea.id}/`, { method: "POST" })
-    await navigateTo(`/app/posts?tab=drafts&post=${post.id}`)
+    await navigateTo(localePath(`/app/posts?tab=drafts&post=${post.id}`))
   } catch (error: any) {
-    submitError.value = extractApiError(error, "Could not convert idea to post.")
+    submitError.value = extractApiError(error, t("ideas.errors.convert_failed"))
   } finally {
     convertingId.value = null
   }
@@ -172,7 +174,7 @@ async function moveIdea(idea: Idea, column: string) {
     await loadIdeas()
   } catch (error: any) {
     idea.column = previousColumn
-    submitError.value = extractApiError(error, "Could not move idea.")
+    submitError.value = extractApiError(error, t("ideas.errors.move_failed"))
   }
 }
 
@@ -210,10 +212,10 @@ async function onDrop(e: DragEvent, col: string) {
   <div class="px-5 py-5 md:px-8 md:py-8" @click="openMenuId = null; moveExpandedId = null">
     <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div class="space-y-1">
-        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">Content pipeline</p>
-        <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">Ideas</h1>
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("ideas.kicker") }}</p>
+        <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("ideas.title") }}</h1>
         <p class="max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          Capture ideas, move them across stages, and manage them inline.
+          {{ t("ideas.subtitle") }}
         </p>
       </div>
       <button
@@ -221,7 +223,7 @@ async function onDrop(e: DragEvent, col: string) {
         class="action-btn inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition"
         @click.stop="openCreateModal()"
       >
-        New idea
+        {{ t("ideas.actions.new") }}
       </button>
     </div>
 
@@ -236,7 +238,7 @@ async function onDrop(e: DragEvent, col: string) {
       v-if="loading"
       class="mb-4 rounded-2xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-sm text-[var(--muted)]"
     >
-      Loading ideas...
+      {{ t("ideas.loading") }}
     </div>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -263,7 +265,7 @@ async function onDrop(e: DragEvent, col: string) {
             class="inline-flex items-center justify-center rounded-full border border-[var(--line)] bg-[var(--panel)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] shadow-[var(--shadow-soft)] transition hover:-translate-y-[1px] hover:bg-[var(--surface)]"
             @click.stop="openCreateModal(col)"
           >
-            + New
+            + {{ t("ideas.actions.new_short") }}
           </button>
         </div>
 
@@ -297,7 +299,7 @@ async function onDrop(e: DragEvent, col: string) {
                   class="block w-full rounded-xl px-3 py-2 text-left text-sm text-[var(--ink)] transition hover:bg-[var(--bg)]"
                   @click.stop="openEditModal(idea)"
                 >
-                  Edit
+                  {{ t("common.edit") }}
                 </button>
                 <div class="my-1 border-t border-[var(--line)]"></div>
                 <button
@@ -305,7 +307,7 @@ async function onDrop(e: DragEvent, col: string) {
                   class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[var(--ink)] transition hover:bg-[var(--bg)]"
                   @click.stop="moveExpandedId = moveExpandedId === idea.id ? null : idea.id"
                 >
-                  <span>Move to</span>
+                  <span>{{ t("ideas.actions.move_to") }}</span>
                   <span
                     class="text-[var(--muted)] transition-transform duration-150"
                     :class="moveExpandedId === idea.id ? 'rotate-90' : ''"
@@ -328,7 +330,7 @@ async function onDrop(e: DragEvent, col: string) {
                   class="block w-full rounded-xl px-3 py-2 text-left text-sm text-[var(--ink)] transition hover:bg-[var(--bg)]"
                   @click.stop="convertToPost(idea)"
                 >
-                  {{ convertingId === idea.id ? "Converting..." : "Convert to post" }}
+                  {{ convertingId === idea.id ? t("ideas.actions.converting") : t("ideas.actions.convert_to_post") }}
                 </button>
                 <div class="my-1 border-t border-[var(--line)]"></div>
                 <button
@@ -336,7 +338,7 @@ async function onDrop(e: DragEvent, col: string) {
                   class="block w-full rounded-xl px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
                   @click.stop="deleteIdea(idea)"
                 >
-                  {{ deletingId === idea.id ? "Deleting..." : "Delete" }}
+                  {{ deletingId === idea.id ? t("ideas.actions.deleting") : t("common.delete") }}
                 </button>
               </div>
             </div>
@@ -361,7 +363,7 @@ async function onDrop(e: DragEvent, col: string) {
           v-if="!byColumn[col].length"
           class="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-4 py-10 text-center text-sm text-[var(--muted)]"
         >
-          No ideas yet
+          {{ t("ideas.empty") }}
         </p>
       </div>
     </div>
@@ -380,7 +382,7 @@ async function onDrop(e: DragEvent, col: string) {
         >
           <div class="flex items-center gap-3 border-b border-[var(--line)] px-6 py-5">
             <span class="flex-1 text-base font-semibold text-[var(--ink)]">
-              {{ modalMode === "edit" ? "Edit idea" : "Create idea" }}
+              {{ modalMode === "edit" ? t("ideas.modal.edit_title") : t("ideas.modal.create_title") }}
             </span>
             <button
               type="button"
@@ -393,27 +395,27 @@ async function onDrop(e: DragEvent, col: string) {
           </div>
 
           <div class="flex flex-col gap-4 px-6 py-5">
-            <label class="text-lg font-semibold text-[var(--ink)]">Title</label>
+            <label class="text-lg font-semibold text-[var(--ink)]">{{ t("ideas.fields.title") }}</label>
             <input
               v-model="modalForm.title"
               class="w-full rounded-2xl border border-[var(--line)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--brand)]"
-              placeholder="Ready, set, flow..."
+              :placeholder="t('ideas.fields.title_placeholder')"
               @keydown.enter.ctrl.prevent="saveIdea"
             />
 
-            <label class="text-sm font-medium text-[var(--ink)]">Note</label>
+            <label class="text-sm font-medium text-[var(--ink)]">{{ t("ideas.fields.note") }}</label>
             <textarea
               v-model="modalForm.note"
               class="min-h-36 w-full rounded-2xl border border-[var(--line)] bg-[var(--input-bg)] px-4 py-3 text-sm leading-6 text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--brand)]"
-              placeholder="Add a note..."
+              :placeholder="t('ideas.fields.note_placeholder')"
               rows="6"
             />
 
-            <label class="text-sm font-medium text-[var(--ink)]">Tags</label>
+            <label class="text-sm font-medium text-[var(--ink)]">{{ t("ideas.fields.tags") }}</label>
             <input
               v-model="modalForm.tags"
               class="w-full rounded-2xl border border-[var(--line)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--brand)]"
-              placeholder="Tags, comma separated..."
+              :placeholder="t('ideas.fields.tags_placeholder')"
             />
 
             <p
@@ -425,14 +427,14 @@ async function onDrop(e: DragEvent, col: string) {
           </div>
 
           <div class="flex items-center justify-between gap-3 border-t border-[var(--line)] px-6 py-4">
-            <p class="text-sm text-[var(--muted)]">Ctrl + Enter to save</p>
+            <p class="text-sm text-[var(--muted)]">{{ t("ideas.hint_save_shortcut") }}</p>
             <div class="flex items-center gap-3">
               <button
                 type="button"
                 class="inline-flex items-center justify-center rounded-full border border-[var(--line)] px-5 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--bg)]"
                 @click="closeModal"
               >
-                Cancel
+                {{ t("common.cancel") }}
               </button>
               <button
                 type="button"
@@ -440,7 +442,13 @@ async function onDrop(e: DragEvent, col: string) {
                 :disabled="!modalForm.title.trim() || saving"
                 @click="saveIdea"
               >
-                {{ saving ? "Saving..." : modalMode === "edit" ? "Save changes" : "Save idea" }}
+                {{
+                  saving
+                    ? t("common.saving")
+                    : modalMode === "edit"
+                      ? t("ideas.actions.save_changes")
+                      : t("ideas.actions.save_idea")
+                }}
               </button>
             </div>
           </div>

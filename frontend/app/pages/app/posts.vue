@@ -1,5 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const localePath = useLocalePath()
+const { t } = useI18n()
+const intlLocale = useIntlLocale()
 
 type Tab = "queue" | "drafts" | "sent"
 type Strategy = "draft" | "queue" | "schedule" | "publish"
@@ -530,7 +533,7 @@ function groupLabel(post: Post) {
   tomorrow.setDate(today.getDate() + 1)
   if (date.toDateString() === today.toDateString()) return "Today"
   if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow"
-  return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+  return date.toLocaleDateString(intlLocale.value, { weekday: "long", month: "long", day: "numeric" })
 }
 
 function accountFor(post: Post) {
@@ -1450,7 +1453,7 @@ function isRunningStatus(status: string) {
 
 function shortDateTime(value?: string | null) {
   if (!value) return "No date"
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -1483,7 +1486,7 @@ function postExcerpt(post: Post) {
 
 function postTime(post: Post) {
   const raw = post.scheduled_at || post.published_at || post.created_at
-  return new Date(raw).toLocaleTimeString("en-US", {
+  return new Date(raw).toLocaleTimeString(intlLocale.value, {
     hour: "numeric",
     minute: "2-digit",
   })
@@ -1515,49 +1518,49 @@ function pageHint() {
 <template>
   <div class="posts-workspace">
     <section class="posts-shell">
-      <header class="posts-header">
-        <div class="posts-header-main">
-          <div class="posts-icon">P</div>
-          <div>
-            <h1 class="posts-title">{{ filteredChannel?.display_name || "All Channels" }}</h1>
-            <p class="posts-subtitle">Manage drafts, queue, and publishing across every connected channel.</p>
-          </div>
+      <header class="mb-1 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div class="space-y-1">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("posts.kicker") }}</p>
+          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("posts.title") }}</h1>
+          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">{{ t("posts.subtitle") }}</p>
         </div>
-
         <div class="posts-header-actions">
-          <button class="header-btn" type="button">List</button>
-          <NuxtLink to="/app/calendar" class="header-btn">Calendar</NuxtLink>
-          <button class="btn" @click="startNewPost('draft')">+ New Post</button>
+          <button class="header-btn" type="button">{{ t("posts.view_list") }}</button>
+          <NuxtLink :to="localePath('/app/calendar')" class="header-btn">{{ t("nav.calendar") }}</NuxtLink>
+          <button class="btn" @click="startNewPost('draft')">+ {{ t("posts.new_post") }}</button>
         </div>
       </header>
 
       <div class="posts-toolbar">
         <nav class="posts-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'queue' }" @click="activeTab = 'queue'">
-            Queue <span>{{ posts.filter((post) => ['queued', 'scheduled', 'publishing'].includes(post.delivery_status) && matchesAccount(post)).length }}</span>
+            {{ t("posts.tab_queue") }}
+            <span>{{ posts.filter((post) => ['queued', 'scheduled', 'publishing'].includes(post.delivery_status) && matchesAccount(post)).length }}</span>
           </button>
           <button class="tab-btn" :class="{ active: activeTab === 'drafts' }" @click="activeTab = 'drafts'">
-            Drafts <span>{{ posts.filter((post) => post.delivery_status === 'draft' && matchesAccount(post)).length }}</span>
+            {{ t("posts.tab_drafts") }}
+            <span>{{ posts.filter((post) => post.delivery_status === 'draft' && matchesAccount(post)).length }}</span>
           </button>
           <button class="tab-btn" :class="{ active: activeTab === 'sent' }" @click="activeTab = 'sent'">
-            Sent <span>{{ posts.filter((post) => ['published', 'failed', 'canceled'].includes(post.delivery_status) && matchesAccount(post)).length }}</span>
+            {{ t("posts.tab_sent") }}
+            <span>{{ posts.filter((post) => ['published', 'failed', 'canceled'].includes(post.delivery_status) && matchesAccount(post)).length }}</span>
           </button>
         </nav>
 
         <div class="toolbar-filters">
           <button class="toolbar-chip" type="button">
-            {{ filteredChannel ? filteredChannel.display_name : "All Channels" }}
+            {{ filteredChannel ? filteredChannel.display_name : t("posts.all_channels") }}
           </button>
           <button v-if="filteredChannel" class="toolbar-chip" type="button" @click="activeAccount = ''">
-            Clear filter
+            {{ t("posts.clear_filter") }}
           </button>
         </div>
       </div>
 
       <div v-if="!activePosts.length" class="posts-empty">
-        <strong>No posts in this view</strong>
-        <p>Create a post or switch to another tab.</p>
-        <button class="btn secondary" @click="startNewPost('draft')">New post</button>
+        <strong>{{ t("posts.empty_title") }}</strong>
+        <p>{{ t("posts.empty_body") }}</p>
+        <button class="btn secondary" @click="startNewPost('draft')">{{ t("posts.new_post") }}</button>
       </div>
 
       <div v-else class="posts-feed">
@@ -1704,7 +1707,7 @@ function pageHint() {
           <div v-if="!hasChannels" class="editor-alert warning">
             <strong>No channels connected.</strong>
             <span>Connect a channel before queueing, scheduling, or publishing.</span>
-            <NuxtLink to="/app/settings" class="editor-link">Open settings</NuxtLink>
+            <NuxtLink :to="localePath('/app/settings')" class="editor-link">Open settings</NuxtLink>
           </div>
 
           <div v-if="error" class="editor-alert danger">
@@ -1995,7 +1998,7 @@ function pageHint() {
 
 <style scoped>
 .posts-workspace {
-  padding: 24px;
+  padding: 28px;
   background: var(--page-gradient);
   min-height: 100%;
 }
@@ -2013,11 +2016,8 @@ function pageHint() {
 .posts-shell {
   max-width: 1120px;
   margin: 0 auto;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--panel);
-  overflow: hidden;
-  box-shadow: var(--shadow-panel);
+  display: grid;
+  gap: 20px;
 }
 
 .posts-header,
@@ -2026,16 +2026,20 @@ function pageHint() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 22px;
-  background: var(--panel);
+  padding: 0;
+  background: transparent;
 }
 
 .posts-header {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
 }
 
 .posts-toolbar {
-  border-bottom: 1px solid var(--line);
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .posts-header-main,
@@ -2051,35 +2055,6 @@ function pageHint() {
 
 .posts-header-main {
   min-width: 0;
-}
-
-.posts-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--muted);
-  background: var(--surface);
-}
-
-.posts-title {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: var(--ink);
-}
-
-.posts-subtitle {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 .header-btn,
@@ -2108,7 +2083,10 @@ function pageHint() {
 
 .posts-feed {
   padding: 18px 22px 26px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
   background: var(--panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .composer-overlay {
@@ -2537,7 +2515,10 @@ function pageHint() {
   text-align: center;
   color: var(--muted);
   padding: 60px 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
   background: var(--panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .editor-panel {

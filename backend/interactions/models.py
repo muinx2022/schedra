@@ -19,6 +19,7 @@ class InteractionTriageStatus(models.TextChoices):
 
 class InteractionDirection(models.TextChoices):
     INBOUND = "inbound", "Inbound"
+    OUTBOUND = "outbound", "Outbound"
 
 
 class InteractionThread(BaseModel):
@@ -65,4 +66,3 @@ class InteractionMessage(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=["thread", "external_id"], name="uniq_interaction_message_external"),
         ]
-

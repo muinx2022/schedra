@@ -1,5 +1,65 @@
+function normalizeErrorValue(value: any): string {
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+
+    if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+      try {
+        return normalizeErrorValue(JSON.parse(trimmed))
+      } catch {
+        // Keep the original string when it is not valid JSON.
+      }
+    }
+
+    return trimmed
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeErrorValue(item))
+      .filter(Boolean)
+      .join(" ")
+      .trim()
+  }
+
+  if (!value || typeof value !== "object") {
+    return ""
+  }
+
+  const prioritizedKeys = ["detail", "message", "statusMessage", "error", "non_field_errors"]
+  for (const key of prioritizedKeys) {
+    const nested = normalizeErrorValue(value[key])
+    if (nested) return nested
+  }
+
+  const entries = Object.entries(value)
+    .map(([key, nestedValue]) => {
+      const nested = normalizeErrorValue(nestedValue)
+      if (!nested) return ""
+      return Array.isArray(nestedValue) || typeof nestedValue === "object" ? `${key}: ${nested}` : nested
+    })
+    .filter(Boolean)
+
+  return entries.join(" ").trim()
+}
+
 export function extractApiError(err: any, fallback: string): string {
-  return err?.data?.detail || err?.data?.message || err?.data?.statusMessage || err?.message || fallback
+  const candidates = [
+    err?.data,
+    err?.response?._data,
+    err?.response?.data,
+    err?.data?.detail,
+    err?.data?.message,
+    err?.data?.statusMessage,
+    err?.message,
+  ]
+
+  for (const candidate of candidates) {
+    const message = normalizeErrorValue(candidate)
+    if (message) return message
+  }
+
+  return fallback
 }
 
 export async function apiFetch<T>(path: string, options?: Parameters<typeof $fetch<T>>[1]) {

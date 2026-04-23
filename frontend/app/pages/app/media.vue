@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const intlLocale = useIntlLocale()
+const { t } = useI18n()
 
 const { data: assets, refresh } = useAsyncData(
   "media-assets",
@@ -77,14 +79,31 @@ function onDrop(e: DragEvent) {
   if (files?.length) uploadFiles(files)
 }
 
+function deleteAssetErrorMessage(err: any) {
+  const base = extractApiError(err, "Failed to delete")
+  const references = err?.data?.references
+  if (!references || !references.total) return base
+
+  const parts: string[] = []
+  if (references.post_count) {
+    parts.push(references.post_count === 1 ? "1 post" : `${references.post_count} posts`)
+  }
+  if (references.campaign_count) {
+    parts.push(references.campaign_count === 1 ? "1 campaign" : `${references.campaign_count} campaigns`)
+  }
+
+  if (!parts.length) return base
+  return `${base} Currently used by ${parts.join(" and ")}.`
+}
+
 async function deleteAsset(id: string) {
   deletingId.value = id
   try {
     await apiFetch(`/media/${id}/`, { method: "DELETE" })
     await refresh()
     showToast("Deleted.")
-  } catch {
-    showToast("Failed to delete", "error")
+  } catch (e: any) {
+    showToast(deleteAssetErrorMessage(e), "error")
   } finally {
     deletingId.value = null
   }
@@ -97,19 +116,20 @@ function formatSize(bytes: number) {
 }
 
 function formatDate(str: string) {
-  return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return new Date(str).toLocaleDateString(intlLocale.value, { month: "short", day: "numeric", year: "numeric" })
 }
 </script>
 
 <template>
   <div class="media-page">
-    <div class="media-header">
-      <div>
-        <h1 class="media-title">Media Library</h1>
-        <p class="media-subtitle">{{ (assets || []).length }} asset{{ (assets || []).length !== 1 ? "s" : "" }}</p>
+    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div class="space-y-1">
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("media.kicker") }}</p>
+        <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("media.title") }}</h1>
+        <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">{{ t("media.asset_count", { count: (assets || []).length }) }}</p>
       </div>
-      <button class="btn" style="display:flex;align-items:center;gap:6px" @click="fileInputRef?.click()">
-        <span style="font-size:18px;line-height:1">+</span> Upload
+      <button class="btn media-upload-action" @click="fileInputRef?.click()">
+        <span style="font-size:18px;line-height:1">+</span> {{ t("media.upload") }}
       </button>
     </div>
 
@@ -124,12 +144,12 @@ function formatDate(str: string) {
       <input ref="fileInputRef" type="file" accept="image/*,video/*" multiple style="display:none" @change="onFileInput" />
       <template v-if="uploading">
         <div class="upload-spinner"></div>
-        <span class="upload-zone-label">Uploading... {{ uploadProgress }}%</span>
+        <span class="upload-zone-label">{{ t("media.uploading") }} {{ uploadProgress }}%</span>
         <span v-if="uploadStatus" class="upload-zone-hint">{{ uploadStatus }}</span>
       </template>
       <template v-else>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span class="upload-zone-label">Drop media here or <u>browse</u></span>
+        <span class="upload-zone-label">{{ t("media.drop_or_browse_prefix") }} <u>{{ t("media.browse") }}</u></span>
         <span class="upload-zone-hint">PNG, JPG, WEBP, MP4, MOV, WEBM</span>
       </template>
     </div>
@@ -148,7 +168,7 @@ function formatDate(str: string) {
             class="media-card-delete"
             :disabled="deletingId === asset.id"
             @click.stop="deleteAsset(asset.id)"
-            title="Delete"
+            :title="t('common.remove')"
           >{{ deletingId === asset.id ? "..." : "×" }}</button>
         </div>
         <div class="media-card-info">
@@ -160,7 +180,7 @@ function formatDate(str: string) {
 
     <div v-else class="media-empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.25"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      <p>No media yet. Upload your first image or video above.</p>
+      <p>{{ t("media.empty") }}</p>
     </div>
 
     <Teleport to="body">
@@ -190,28 +210,15 @@ function formatDate(str: string) {
 
 <style scoped>
 .media-page {
-  padding: 36px 40px;
+  padding: 28px;
   max-width: 1100px;
   margin: 0 auto;
 }
 
-.media-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-
-.media-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 4px;
-}
-
-.media-subtitle {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0;
+.media-upload-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .upload-zone {

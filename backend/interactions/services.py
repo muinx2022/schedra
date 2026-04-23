@@ -1,13 +1,29 @@
 from django.db.models import Count, Max, Q
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from analytics.models import ProviderSyncState, ProviderSyncStatus, ProviderSyncType
 from analytics.services import build_account_adapter_payload, is_meta_supported_account
 from publishing.models import DeliveryStatus, PostTarget
-from social.adapters import get_provider_adapter
+from social.adapters import get_provider_adapter, interaction_capabilities_for_account, interaction_adapter_code
 from social.models import SocialAccount
 
-from .models import InteractionMessage, InteractionThread, InteractionThreadType
+from .models import InteractionDirection, InteractionMessage, InteractionThread, InteractionThreadType
+
+
+def account_interaction_capabilities(account: SocialAccount) -> dict[str, bool]:
+    return interaction_capabilities_for_account(
+        provider_code=account.provider.code,
+        account_type=account.account_type,
+    )
+
+
+def account_supports_inbox_comments(account: SocialAccount) -> bool:
+    return bool(account_interaction_capabilities(account).get("inbox_comments"))
+
+
+def account_supports_comment_replies(account: SocialAccount) -> bool:
+    return bool(account_interaction_capabilities(account).get("reply_comments"))
 
 
 def sync_comments_for_account(account: SocialAccount) -> dict:
@@ -22,7 +38,7 @@ def sync_comments_for_account(account: SocialAccount) -> dict:
     state.last_synced_at = now
     state.save(update_fields=["status", "last_error", "last_synced_at", "updated_at"])
 
-    if not is_meta_supported_account(account):
+    if not account_supports_inbox_comments(account) or not is_meta_supported_account(account):
         state.status = ProviderSyncStatus.IDLE
         state.last_error = "Comment sync is only supported for Meta Facebook Pages and Instagram Business accounts."
         state.save(update_fields=["status", "last_error", "updated_at"])
@@ -111,6 +127,43 @@ def sync_comments_for_account(account: SocialAccount) -> dict:
         state.last_error = str(exc)
         state.save(update_fields=["status", "last_synced_at", "last_error", "updated_at"])
         return {"status": "error", "account_id": str(account.id), "error": str(exc)}
+
+
+def reply_to_thread_comment(*, thread: InteractionThread, parent_message: InteractionMessage, body_text: str, user) -> InteractionMessage:
+    account = thread.social_account
+    if parent_message.thread_id != thread.id:
+        raise ValidationError({"parent_message_id": "Reply target must belong to the same thread."})
+    if parent_message.direction != InteractionDirection.INBOUND:
+        raise ValidationError({"parent_message_id": "Replies can only target inbound messages."})
+    if not account_supports_comment_replies(account):
+        raise ValidationError({"detail": "Comment replies are not supported for this channel."})
+
+    payload = build_account_adapter_payload(account)
+    adapter = get_provider_adapter(interaction_adapter_code(account.provider.code, account.account_type))
+    result = adapter.reply_to_comment(payload, parent_message.external_id, body_text.strip())
+    published_at = result.get("published_at") or timezone.now()
+    author_name = (
+        result.get("author_name")
+        or account.display_name
+        or user.get_full_name().strip()
+        or getattr(user, "username", "")
+        or "Workspace"
+    )
+    message = InteractionMessage.objects.create(
+        thread=thread,
+        parent_message=parent_message,
+        external_id=result.get("external_id") or f"{parent_message.external_id}-reply-{int(published_at.timestamp())}",
+        parent_external_id=parent_message.external_id,
+        author_name=author_name,
+        author_external_id=result.get("author_external_id", ""),
+        body_text=result.get("body_text") or body_text.strip(),
+        direction=InteractionDirection.OUTBOUND,
+        published_at=published_at,
+        metadata=result.get("metadata") or {},
+    )
+    thread.last_message_at = published_at
+    thread.save(update_fields=["last_message_at", "updated_at"])
+    return message
 
 
 def inbox_thread_queryset_for_workspace(workspace, *, status_value=None, account_id=None, platform=None):

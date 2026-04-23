@@ -1,0 +1,313 @@
+{
+  "nav": {
+    "ideas": "Ideas",
+    "campaigns": "Campaigns",
+    "publish": "Publish",
+    "calendar": "Calendar",
+    "analytics": "Analytics",
+    "inbox": "Inbox",
+    "media": "Media",
+    "settings": "Settings"
+  },
+  "common": {
+    "channels": "Channels",
+    "connected_count": "{count} connected",
+    "connect_channel": "Connect a channel",
+    "done": "Done",
+    "all": "All",
+    "open": "Open",
+    "channel": "Channel",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "active": "Active",
+    "saving": "Saving...",
+    "updated": "Updated",
+    "view": "View",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "unknown": "Unknown",
+    "not_available": "Not available",
+    "log_in": "Log in",
+    "log_out": "Log out",
+    "workspace": "Workspace"
+  },
+  "analytics": {
+    "kicker": "Analytics",
+    "title": "Workspace performance",
+    "subtitle": "Track delivery health and synced Meta provider insights by day and by channel.",
+    "modes": {
+      "delivery": "Delivery",
+      "provider": "Provider"
+    },
+    "errors": {
+      "load_failed": "Could not load analytics."
+    },
+    "provider_sync": {
+      "queued_message": "Provider refresh queued. Background workers will update Meta insights.",
+      "queue_failed": "Could not queue provider refresh."
+    }
+  },
+  "calendar": {
+    "kicker": "Publishing calendar",
+    "title": "Weekly schedule and history",
+    "subtitle": "See what is queued next, what has a locked schedule, and jump straight back into the publishing workspace.",
+    "summary": {
+      "upcoming": "Upcoming",
+      "published": "Published"
+    },
+    "sections": {
+      "this_week": "This week",
+      "upcoming_timeline": "Upcoming timeline",
+      "queue_health": "Queue health",
+      "next_actions": "Next actions",
+      "history": "History",
+      "published_results": "Published and delivery results"
+    },
+    "unscheduled": "Unscheduled",
+    "no_page": "No page",
+    "untitled_post": "Untitled post",
+    "media_count": "{count} media",
+    "day_empty": "No posts",
+    "empty_queue": "Nothing queued or scheduled yet.",
+    "empty_history": "No published history yet."
+  },
+  "media": {
+    "kicker": "Asset library",
+    "title": "Media Library",
+    "upload": "Upload",
+    "uploading": "Uploading...",
+    "browse": "browse",
+    "drop_or_browse_prefix": "Drop media here or",
+    "empty": "No media yet. Upload your first image or video above.",
+    "asset_count": "{count} asset | {count} assets"
+  },
+  "campaigns": {
+    "kicker": "Campaign manager",
+    "title": "Campaigns",
+    "subtitle": "Manage campaigns from one list. Create new campaigns here, then open each campaign to generate segments and create draft posts.",
+    "all_campaigns": "All campaigns",
+    "campaign_count": "{count} campaign | {count} campaigns",
+    "empty": "No campaigns yet. Create one first, then open it to generate segments and draft posts.",
+    "media": {
+      "text_only": "Text only",
+      "video": "Video",
+      "images_count": "{count} images"
+    },
+    "segments_count": "{count} segments",
+    "drafts_count": "{count} drafts",
+    "actions": {
+      "create": "Create campaign"
+    }
+  },
+  "ideas": {
+    "kicker": "Content pipeline",
+    "title": "Ideas",
+    "subtitle": "Capture ideas, move them across stages, and manage them inline.",
+    "columns": {
+      "unassigned": "Unassigned",
+      "todo": "Todo",
+      "in_progress": "In Progress",
+      "done": "Done"
+    },
+    "loading": "Loading ideas...",
+    "empty": "No ideas yet",
+    "confirm_delete": "Delete \"{title}\"?",
+    "hint_save_shortcut": "Ctrl + Enter to save",
+    "errors": {
+      "load_failed": "Could not load ideas.",
+      "save_failed": "Could not save idea.",
+      "delete_failed": "Could not delete idea.",
+      "convert_failed": "Could not convert idea to post.",
+      "move_failed": "Could not move idea."
+    },
+    "actions": {
+      "new": "New idea",
+      "new_short": "New",
+      "move_to": "Move to",
+      "convert_to_post": "Convert to post",
+      "converting": "Converting...",
+      "deleting": "Deleting...",
+      "save_changes": "Save changes",
+      "save_idea": "Save idea"
+    },
+    "modal": {
+      "create_title": "Create idea",
+      "edit_title": "Edit idea"
+    },
+    "fields": {
+      "title": "Title",
+      "title_placeholder": "Ready, set, flow...",
+      "note": "Note",
+      "note_placeholder": "Add a note...",
+      "tags": "Tags",
+      "tags_placeholder": "Tags, comma separated..."
+    }
+  },
+  "inbox": {
+    "kicker": "Inbox",
+    "title": "Comment interactions",
+    "subtitle": "Review synced comments from supported channels, move threads through triage, and reply from the same workspace.",
+    "refresh": "Refresh inbox",
+    "queueing": "Queueing...",
+    "errors": {
+      "load_failed": "Could not load inbox.",
+      "send_reply_failed": "Could not send reply."
+    },
+    "empty": {
+      "no_interactive_title": "No interactive channels connected yet",
+      "no_interactive_body": "Connect a supported Meta Facebook Page or Instagram Business account to use Inbox interactions."
+    },
+    "overview": {
+      "current_queue": "Current queue",
+      "new": "New",
+      "needs_first_review": "Needs first review",
+      "reviewing": "Reviewing",
+      "in_active_triage": "In active triage",
+      "resolved": "Resolved",
+      "closed_in_view": "Closed in this view",
+      "reply_enabled": "Reply enabled",
+      "channels_connected": "{count} channels connected"
+    },
+    "filters": {
+      "platform": "Platform",
+      "channel": "Channel",
+      "all_channels": "All channels",
+      "all_platforms": "All platforms",
+      "platform_fallback": "Platform"
+    },
+    "triage": {
+      "new": "New",
+      "reviewing": "Reviewing",
+      "resolved": "Resolved",
+      "ignored": "Ignored",
+      "update_failed": "Could not update triage status."
+    },
+    "direction": {
+      "reply": "Reply",
+      "comment": "Comment"
+    },
+    "message": {
+      "no_text_content": "No text content."
+    },
+    "time": {
+      "no_activity": "No activity yet",
+      "just_now": "just now",
+      "minutes_ago": "{count}m ago",
+      "hours_ago": "{count}h ago",
+      "days_ago": "{count}d ago"
+    },
+    "sync": {
+      "queued": "Inbox refresh queued. Background workers will pull new comments.",
+      "queue_failed": "Could not queue inbox refresh."
+    },
+    "list": {
+      "queue": "Queue",
+      "conversations_count": "{count} conversation | {count} conversations",
+      "loading": "Loading inbox...",
+      "empty": "No synced comment threads match this filter yet."
+    }
+  },
+  "datetime": {
+    "weekday_short": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "marketing": {
+    "features": "Features",
+    "channels": "Channels",
+    "pricing": "Pricing",
+    "get_started_free": "Get started free",
+    "open_publishing": "Open publishing"
+  },
+  "settings": {
+    "kicker": "Settings",
+    "title": "Workspace settings",
+    "subtitle": "Manage appearance, connected channels, and the publishing setup your workspace uses day to day.",
+    "connect_channel": "Connect channel",
+    "fallback_user": "Workspace user",
+    "fallback_workspace": "Default workspace",
+    "appearance": {
+      "label": "Appearance",
+      "theme_title": "Theme",
+      "theme_subtitle": "Choose how the workspace should render for this browser."
+    },
+    "oauth": {
+      "authorizing": "Authorizing {provider}",
+      "waiting_callback": "Waiting for OAuth callback and token exchange.",
+      "select_entities": "Select {provider} {entities}",
+      "select_entities_hint": "Only the {entities} you connect here will show up in Publish and Calendar.",
+      "none_found": "No {provider} {entities} found",
+      "already_connected": "Already connected",
+      "empty_hint": {
+        "instagram": "Make sure the Instagram account is Professional and the app has the required Instagram scopes.",
+        "linkedin": "Make sure the LinkedIn account has granted the required permissions.",
+        "tiktok": "Make sure the TikTok account is added as a sandbox target user and granted the requested scopes.",
+        "pinterest": "Make sure the Pinterest login has access to at least one board and granted boards:read.",
+        "facebook": "Make sure the login you used has access to at least one Facebook Page."
+      }
+    },
+    "connected_channels": {
+      "title": "Connected channels",
+      "subtitle": "{active} / {total} channels active in this workspace",
+      "empty_title": "No connected channels yet",
+      "empty_body": "Connect a channel, then choose the accounts you want available for publishing in this workspace."
+    },
+    "queue": {
+      "duplicate_error": "Queue slots cannot share the same day and time.",
+      "save_failed": "Failed to save queue slots",
+      "slots": "Queue slots",
+      "hide": "Hide queue",
+      "schedule_label": "Queue Schedule",
+      "schedule_note": "Queue uses these active day and time slots for auto-scheduling.",
+      "drag_to_reorder": "Drag to reorder",
+      "empty_title": "No queue slots yet",
+      "empty_body": "Add at least one active slot if you want this channel to use Queue.",
+      "add_slot": "Add slot",
+      "save_slots": "Save queue slots",
+      "slots_count": "{count} queue slots"
+    },
+    "status": {
+      "connected": "Connected",
+      "pending": "Pending",
+      "needs_reconnect": "Needs reconnect",
+      "connecting": "Connecting..."
+    },
+    "actions": {
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting..."
+    },
+    "provider_modal": {
+      "title": "Connect a New Channel",
+      "subtitle": "Choose the network you want to connect to this workspace.",
+      "available_now": "Available now",
+      "coming_soon": "Coming soon"
+    },
+    "disconnect": {
+      "confirm_kicker": "Confirm disconnect",
+      "confirm_title": "Disconnect {name}?",
+      "confirm_body": "This channel will be removed from your workspace. Any scheduled posts targeting it will not be published."
+    }
+  },
+  "posts": {
+    "kicker": "Publishing workspace",
+    "title": "Posts",
+    "all_channels": "All Channels",
+    "subtitle": "Manage drafts, queue, and publishing across every connected channel.",
+    "view_list": "List",
+    "new_post": "New Post",
+    "tab_queue": "Queue",
+    "tab_drafts": "Drafts",
+    "tab_sent": "Sent",
+    "clear_filter": "Clear filter",
+    "empty_title": "No posts in this view",
+    "empty_body": "Create a post or switch to another tab."
+  }
+}

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const intlLocale = useIntlLocale()
+const { t } = useI18n()
 
 type AnalyticsSummary = {
   connected_channels: number
@@ -293,7 +295,7 @@ function chartHeight(value: number, maxValue: number) {
 }
 
 function formatDayLabel(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+  return new Date(`${value}T00:00:00`).toLocaleDateString(intlLocale.value, {
     month: "short",
     day: "numeric",
   })
@@ -301,7 +303,7 @@ function formatDayLabel(value: string) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "No activity yet"
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -311,7 +313,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+  return new Intl.NumberFormat(intlLocale.value, { notation: "compact", maximumFractionDigits: 1 }).format(value)
 }
 
 function platformName(code?: string) {
@@ -364,10 +366,10 @@ async function queueProviderSync() {
       method: "POST",
       body: selectedAccountId.value ? { account: selectedAccountId.value } : {},
     })
-    providerSyncMessage.value = "Provider refresh queued. Background workers will update Meta insights."
+    providerSyncMessage.value = t("analytics.provider_sync.queued_message")
     await refresh()
   } catch (syncError) {
-    providerSyncMessage.value = extractApiError(syncError, "Could not queue provider refresh.")
+    providerSyncMessage.value = extractApiError(syncError, t("analytics.provider_sync.queue_failed"))
   } finally {
     providerSyncPending.value = false
   }
@@ -377,12 +379,12 @@ async function queueProviderSync() {
 <template>
   <div class="analytics-page">
     <section class="analytics-shell">
-      <header class="analytics-header">
+      <header class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div class="analytics-header-copy">
-          <p class="analytics-kicker">Analytics</p>
-          <h1>Workspace performance</h1>
-          <p class="analytics-subtitle">
-            Track delivery health and synced Meta provider insights by day and by channel.
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("analytics.kicker") }}</p>
+          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("analytics.title") }}</h1>
+          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            {{ t("analytics.subtitle") }}
           </p>
         </div>
 
@@ -395,7 +397,7 @@ async function queueProviderSync() {
               :class="{ active: selectedView === view }"
               @click="setView(view)"
             >
-              {{ view === "delivery" ? "Delivery" : "Provider" }}
+              {{ view === "delivery" ? t("analytics.modes.delivery") : t("analytics.modes.provider") }}
             </button>
           </div>
 
@@ -412,9 +414,9 @@ async function queueProviderSync() {
           </div>
 
           <label class="channel-select-wrap">
-            <span>Channel</span>
+            <span>{{ t("common.channel") }}</span>
             <select class="channel-select" :value="selectedAccountId" @change="setAccount(($event.target as HTMLSelectElement).value)">
-              <option value="">All channels</option>
+              <option value="">{{ t("posts.all_channels") }}</option>
               <option v-for="option in accountOptions" :key="option.id" :value="option.id">
                 {{ option.label }} - {{ option.platform }}
               </option>
@@ -423,7 +425,7 @@ async function queueProviderSync() {
         </div>
       </header>
 
-      <p v-if="error" class="analytics-error">{{ extractApiError(error, "Could not load analytics.") }}</p>
+      <p v-if="error" class="analytics-error">{{ extractApiError(error, t("analytics.errors.load_failed")) }}</p>
       <p v-if="providerSyncMessage" class="analytics-note">{{ providerSyncMessage }}</p>
 
       <template v-if="selectedView === 'delivery'">

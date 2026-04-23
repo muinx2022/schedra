@@ -1,5 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const intlLocale = useIntlLocale()
+const { t } = useI18n()
+const localePath = useLocalePath()
 
 type MediaAsset = {
   id: string
@@ -318,7 +321,7 @@ async function confirmDeleteCampaign() {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -327,26 +330,35 @@ function formatDate(value: string) {
 }
 
 function mediaLabel(campaign: Campaign) {
-  if (campaign.source_media_type === "video") return "Video"
-  if (campaign.source_media_type === "images") return `${campaign.source_images_detail.length} images`
-  return "Text only"
+  if (campaign.source_media_type === "video") return t("campaigns.media.video")
+  if (campaign.source_media_type === "images") {
+    return t("campaigns.media.images_count", { count: campaign.source_images_detail.length })
+  }
+  return t("campaigns.media.text_only")
 }
 
 function viewCampaign(campaign: Campaign) {
-  return navigateTo(`/app/campaigns/${campaign.id}`)
+  return navigateTo(localePath(`/app/campaigns/${campaign.id}`))
 }
 </script>
 
 <template>
   <div class="campaigns-page">
-    <div class="campaigns-hero">
-      <div>
-        <p class="campaigns-kicker">Campaign manager</p>
-        <h1>Campaigns</h1>
-        <p class="campaigns-subtitle">
-          Manage campaigns from one list. Create new campaigns here, then open each campaign to generate segments and create draft posts.
+    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div class="space-y-1">
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("campaigns.kicker") }}</p>
+        <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("campaigns.title") }}</h1>
+        <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          {{ t("campaigns.subtitle") }}
         </p>
       </div>
+      <button
+        type="button"
+        class="campaign-btn campaign-btn-primary self-start md:self-auto"
+        @click="openCreateModal"
+      >
+        {{ t("campaigns.actions.create") }}
+      </button>
     </div>
 
     <p v-if="error" class="campaigns-alert error">{{ error }}</p>
@@ -355,10 +367,9 @@ function viewCampaign(campaign: Campaign) {
     <section class="campaign-list-card">
       <div class="campaign-list-head">
         <div>
-          <p class="section-label">All campaigns</p>
-          <h2>{{ campaigns.length }} campaign{{ campaigns.length === 1 ? "" : "s" }}</h2>
+          <p class="section-label">{{ t("campaigns.all_campaigns") }}</p>
+          <h2>{{ t("campaigns.campaign_count", { count: campaigns.length }) }}</h2>
         </div>
-        <button type="button" class="campaign-btn campaign-btn-primary" @click="openCreateModal">Create campaign</button>
       </div>
 
       <div v-if="campaigns.length" class="campaign-table">
@@ -369,23 +380,23 @@ function viewCampaign(campaign: Campaign) {
           </div>
           <div class="campaign-meta">
             <span class="meta-chip">{{ mediaLabel(campaign) }}</span>
-            <span class="meta-chip">{{ campaign.segment_count }} segments</span>
-            <span class="meta-chip">{{ campaign.draft_count }} drafts</span>
+            <span class="meta-chip">{{ t("campaigns.segments_count", { count: campaign.segment_count }) }}</span>
+            <span class="meta-chip">{{ t("campaigns.drafts_count", { count: campaign.draft_count }) }}</span>
             <span class="status-pill" :data-status="campaign.status">{{ campaign.status }}</span>
           </div>
           <div class="campaign-time">
-            <span>Updated</span>
+            <span>{{ t("common.updated") }}</span>
             <strong>{{ formatDate(campaign.updated_at) }}</strong>
           </div>
           <div class="campaign-actions">
-            <button type="button" class="campaign-btn campaign-btn-secondary" @click="viewCampaign(campaign)">View</button>
-            <button type="button" class="campaign-btn campaign-btn-secondary" @click="startEditCampaign(campaign)">Edit</button>
-            <button type="button" class="campaign-btn campaign-btn-danger" @click="startDeleteCampaign(campaign)">Delete</button>
+            <button type="button" class="campaign-btn campaign-btn-secondary" @click="viewCampaign(campaign)">{{ t("common.view") }}</button>
+            <button type="button" class="campaign-btn campaign-btn-secondary" @click="startEditCampaign(campaign)">{{ t("common.edit") }}</button>
+            <button type="button" class="campaign-btn campaign-btn-danger" @click="startDeleteCampaign(campaign)">{{ t("common.delete") }}</button>
           </div>
         </article>
       </div>
       <div v-else class="empty-state">
-        No campaigns yet. Create one first, then open it to generate segments and draft posts.
+        {{ t("campaigns.empty") }}
       </div>
     </section>
 

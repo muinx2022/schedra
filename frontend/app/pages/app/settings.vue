@@ -1,5 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const intlLocale = useIntlLocale()
+const { t } = useI18n()
+const localePath = useLocalePath()
 
 type SocialConnection = {
   id: string
@@ -27,6 +30,10 @@ type SocialAccount = {
   account_type: string
   timezone: string
   status: string
+  interaction_capabilities: {
+    inbox_comments: boolean
+    reply_comments: boolean
+  }
   queue_slots?: QueueSlot[]
   created_at: string
 }
@@ -64,7 +71,7 @@ const router = useRouter()
 const { preference: themePreference, options: themeOptions, setPreference } = useThemePreference()
 
 const callbackBaseUrl = ref(
-  typeof window !== "undefined" ? `${window.location.origin}/app/settings` : "/app/settings"
+  typeof window !== "undefined" ? `${window.location.origin}${localePath("/app/settings")}` : localePath("/app/settings")
 )
 const step = ref<Step>("idle")
 const flowProvider = ref<ProviderCode | null>(null)
@@ -92,18 +99,18 @@ const draggingQueueSlot = ref<{ accountId: string; index: number } | null>(null)
 const queueSlotDrafts = ref<Record<string, QueueSlot[]>>({})
 const error = ref("")
 
-const weekdayOptions = [
-  { value: 0, label: "Mon" },
-  { value: 1, label: "Tue" },
-  { value: 2, label: "Wed" },
-  { value: 3, label: "Thu" },
-  { value: 4, label: "Fri" },
-  { value: 5, label: "Sat" },
-  { value: 6, label: "Sun" },
-]
+const weekdayOptions = computed(() => [
+  { value: 0, label: t("datetime.weekday_short.mon") },
+  { value: 1, label: t("datetime.weekday_short.tue") },
+  { value: 2, label: t("datetime.weekday_short.wed") },
+  { value: 3, label: t("datetime.weekday_short.thu") },
+  { value: 4, label: t("datetime.weekday_short.fri") },
+  { value: 5, label: t("datetime.weekday_short.sat") },
+  { value: 6, label: t("datetime.weekday_short.sun") },
+])
 
 onMounted(() => {
-  callbackBaseUrl.value = `${window.location.origin}/app/settings`
+  callbackBaseUrl.value = `${window.location.origin}${localePath("/app/settings")}`
 })
 
 const { data: connections, refresh: refreshConnections } = useAsyncData(
@@ -137,9 +144,9 @@ const instagramConnectedIds = computed(() =>
   new Set(accounts.value.filter((item) => item.channel_code === "instagram").map((item) => item.external_id))
 )
 const userName = computed(() =>
-  [session.value.user?.first_name, session.value.user?.last_name].filter(Boolean).join(" ") || "Workspace user"
+  [session.value.user?.first_name, session.value.user?.last_name].filter(Boolean).join(" ") || t("settings.fallback_user")
 )
-const workspaceName = computed(() => session.value.user?.workspace?.name || "Default workspace")
+const workspaceName = computed(() => session.value.user?.workspace?.name || t("settings.fallback_workspace"))
 const workspaceTimezone = computed(() => session.value.user?.workspace?.timezone || "Asia/Saigon")
 const flowProviderLabel = computed(() => {
   const labels: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", pinterest: "Pinterest" }
@@ -205,18 +212,18 @@ function availableAccountTypeLabel(account: OAuthPage) {
 
 function flowEmptyStateHint(providerCode?: ProviderCode | null) {
   if (providerCode === "instagram") {
-    return "Make sure the Instagram account is Professional and the app has the required Instagram scopes."
+    return t("settings.oauth.empty_hint.instagram")
   }
   if (providerCode === "linkedin") {
-    return "Make sure the LinkedIn account has granted the required permissions."
+    return t("settings.oauth.empty_hint.linkedin")
   }
   if (providerCode === "tiktok") {
-    return "Make sure the TikTok account is added as a sandbox target user and granted the requested scopes."
+    return t("settings.oauth.empty_hint.tiktok")
   }
   if (providerCode === "pinterest") {
-    return "Make sure the Pinterest login has access to at least one board and granted boards:read."
+    return t("settings.oauth.empty_hint.pinterest")
   }
-  return "Make sure the login you used has access to at least one Facebook Page."
+  return t("settings.oauth.empty_hint.facebook")
 }
 
 function storedOAuthProvider() {
@@ -478,7 +485,7 @@ async function saveQueueSlots(account: SocialAccount) {
   error.value = ""
   try {
     if (hasDuplicateQueueSlots(account.id)) {
-      error.value = "Queue slots cannot share the same day and time."
+      error.value = t("settings.queue.duplicate_error")
       return
     }
     const draft = queueSlotsFor(account.id).map((slot, position) => ({
@@ -521,7 +528,7 @@ async function saveQueueSlots(account: SocialAccount) {
     await refreshAccounts()
     await refreshNuxtData("sidebar-accounts")
   } catch (e: any) {
-    error.value = extractApiError(e, "Failed to save queue slots")
+    error.value = extractApiError(e, t("settings.queue.save_failed"))
   } finally {
     savingQueueAccountId.value = null
   }
@@ -538,8 +545,8 @@ function platformClass(accountType: string, providerCode?: string): string {
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "Not available"
-  return new Date(value).toLocaleString("en-US", {
+  if (!value) return t("common.not_available")
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -549,10 +556,10 @@ function formatDate(value?: string | null) {
 }
 
 function connectionStatusLabel(status?: string) {
-  if (status === "connected") return "Connected"
-  if (status === "pending") return "Pending"
-  if (status === "expired") return "Needs reconnect"
-  return status || "Unknown"
+  if (status === "connected") return t("settings.status.connected")
+  if (status === "pending") return t("settings.status.pending")
+  if (status === "expired") return t("settings.status.needs_reconnect")
+  return status || t("common.unknown")
 }
 
 function statusTone(status?: string) {
@@ -713,22 +720,22 @@ async function selectProvider(option: ProviderOption) {
 <template>
   <div class="settings-page">
     <section class="settings-shell">
-      <header class="channels-header">
+      <header class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div class="channels-heading">
-          <p class="settings-kicker">Settings</p>
-          <h1>Workspace settings</h1>
-          <p class="settings-subtitle">
-            Manage appearance, connected channels, and the publishing setup your workspace uses day to day.
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("settings.kicker") }}</p>
+          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("settings.title") }}</h1>
+          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            {{ t("settings.subtitle") }}
           </p>
         </div>
-        <button class="btn connect-trigger" @click="openProviderModal">Connect channel</button>
+        <button class="btn connect-trigger" @click="openProviderModal">{{ t("settings.connect_channel") }}</button>
       </header>
 
       <section class="settings-card appearance-card">
         <div class="appearance-copy">
-          <p class="section-label">Appearance</p>
-          <h2>Theme</h2>
-          <p>Choose how the workspace should render for this browser.</p>
+          <p class="section-label">{{ t("settings.appearance.label") }}</p>
+          <h2>{{ t("settings.appearance.theme_title") }}</h2>
+          <p>{{ t("settings.appearance.theme_subtitle") }}</p>
         </div>
 
         <div class="theme-options" aria-label="Theme preference">
@@ -752,20 +759,20 @@ async function selectProvider(option: ProviderOption) {
           <div class="flow-loading">
             <span class="flow-spinner" aria-hidden="true" />
             <div class="flow-loading-copy">
-              <strong>Authorizing {{ flowProviderLabel }}</strong>
-              <span>Waiting for OAuth callback and token exchange.</span>
+              <strong>{{ t("settings.oauth.authorizing", { provider: flowProviderLabel }) }}</strong>
+              <span>{{ t("settings.oauth.waiting_callback") }}</span>
             </div>
           </div>
         </div>
 
         <div v-else-if="step === 'selecting'" class="flow-stack">
           <div class="flow-panel">
-            <strong>Select {{ flowProviderLabel }} {{ flowEntityPluralLabel(flowProvider) }}</strong>
-            <span>Only the {{ flowEntityPluralLabel(flowProvider) }} you connect here will show up in Publish and Calendar.</span>
+            <strong>{{ t("settings.oauth.select_entities", { provider: flowProviderLabel, entities: flowEntityPluralLabel(flowProvider) }) }}</strong>
+            <span>{{ t("settings.oauth.select_entities_hint", { entities: flowEntityPluralLabel(flowProvider) }) }}</span>
           </div>
 
           <div v-if="!availableAccounts.length" class="flow-panel">
-            <strong>No {{ flowProviderLabel }} {{ flowEntityPluralLabel(flowProvider) }} found</strong>
+            <strong>{{ t("settings.oauth.none_found", { provider: flowProviderLabel, entities: flowEntityPluralLabel(flowProvider) }) }}</strong>
             <span>{{ flowEmptyStateHint(flowProvider) }}</span>
           </div>
 
@@ -786,7 +793,7 @@ async function selectProvider(option: ProviderOption) {
               class="btn secondary"
               disabled
             >
-              Connected
+              {{ t("settings.status.connected") }}
             </button>
             <button
               v-else
@@ -794,14 +801,14 @@ async function selectProvider(option: ProviderOption) {
               :disabled="connecting === account.external_id"
               @click="connectAccount(account)"
             >
-              {{ connecting === account.external_id ? "Connecting..." : "Connect" }}
+              {{ connecting === account.external_id ? t("settings.status.connecting") : t("settings.actions.connect") }}
             </button>
           </article>
 
-          <button class="btn secondary settings-inline-btn" @click="resetFlow">Done</button>
+          <button class="btn secondary settings-inline-btn" @click="resetFlow">{{ t("common.done") }}</button>
 
           <div v-if="connectedAccounts.length" class="flow-existing">
-            <p class="flow-existing-label">Already connected</p>
+            <p class="flow-existing-label">{{ t("settings.oauth.already_connected") }}</p>
             <article v-for="account in connectedAccounts" :key="account.id" class="channel-row">
               <div class="channel-leading">
                 <div class="channel-avatar" :class="platformClass(account.account_type, account.provider_code)">
@@ -812,7 +819,7 @@ async function selectProvider(option: ProviderOption) {
                   <span>{{ account.channel_name }}</span>
                 </div>
               </div>
-              <span class="connected-badge">Connected</span>
+              <span class="connected-badge">{{ t("settings.status.connected") }}</span>
             </article>
           </div>
         </div>
@@ -820,15 +827,15 @@ async function selectProvider(option: ProviderOption) {
         <div v-else class="channels-section">
           <div class="channels-section-header">
             <div>
-              <h2>Connected channels</h2>
-              <p>{{ filteredAccounts.length }} / {{ connectedAccounts.length }} channels active in this workspace</p>
+              <h2>{{ t("settings.connected_channels.title") }}</h2>
+              <p>{{ t("settings.connected_channels.subtitle", { active: filteredAccounts.length, total: connectedAccounts.length }) }}</p>
             </div>
             <div class="channel-filter-pills">
               <button
                 class="filter-pill"
                 :class="{ active: platformFilter === 'all' }"
                 @click="setFilter('all')"
-              >All</button>
+              >{{ t("common.all") }}</button>
               <button
                 v-for="code in availablePlatforms"
                 :key="code"
@@ -843,8 +850,8 @@ async function selectProvider(option: ProviderOption) {
           </div>
 
           <div v-if="!accounts.length" class="empty-state compact">
-            <strong>No connected channels yet</strong>
-            <p>Connect a channel, then choose the accounts you want available for publishing in this workspace.</p>
+            <strong>{{ t("settings.connected_channels.empty_title") }}</strong>
+            <p>{{ t("settings.connected_channels.empty_body") }}</p>
           </div>
 
           <div v-else class="channels-list">
@@ -857,22 +864,33 @@ async function selectProvider(option: ProviderOption) {
                   <div class="channel-copy">
                     <strong>{{ account.display_name }}</strong>
                     <span>{{ account.channel_name }}</span>
-                    <small>{{ account.timezone }} · {{ activeQueueSlots(account) }} queue slots</small>
+                    <small>{{ account.timezone }} · {{ t("settings.queue.slots_count", { count: activeQueueSlots(account) }) }}</small>
                   </div>
                 </div>
 
                 <div class="channel-trailing">
                   <span class="channel-date">{{ formatDate(account.created_at) }}</span>
+                  <NuxtLink
+                    v-if="account.interaction_capabilities?.inbox_comments"
+                    class="row-link"
+                    :to="localePath('/app/inbox') + `?account=${account.id}`"
+                  >
+                    {{ t("nav.inbox") }}
+                  </NuxtLink>
                   <button class="row-link" @click="toggleQueueEditor(account.id)">
-                    {{ expandedQueueAccountId === account.id ? "Hide queue" : "Queue slots" }}
+                    {{
+                      expandedQueueAccountId === account.id
+                        ? t("settings.queue.hide")
+                        : t("settings.queue.slots")
+                    }}
                   </button>
-                  <NuxtLink class="row-link" :to="`/app/posts?account=${account.id}`">Open</NuxtLink>
+                  <NuxtLink class="row-link" :to="localePath('/app/posts') + `?account=${account.id}`">{{ t("common.open") }}</NuxtLink>
                   <button
                     class="row-link danger"
                     :disabled="disconnecting === account.id"
                     @click="requestDisconnect(account)"
                   >
-                    {{ disconnecting === account.id ? "Disconnecting..." : "Disconnect" }}
+                    {{ disconnecting === account.id ? t("settings.actions.disconnecting") : t("settings.actions.disconnect") }}
                   </button>
                 </div>
               </article>
@@ -880,10 +898,10 @@ async function selectProvider(option: ProviderOption) {
               <div v-if="expandedQueueAccountId === account.id" class="queue-slot-editor">
                 <div class="queue-slot-head">
                   <div>
-                    <p class="section-label">Queue Schedule</p>
+                      <p class="section-label">{{ t("settings.queue.schedule_label") }}</p>
                     <strong>{{ account.display_name }}</strong>
                   </div>
-                  <span class="queue-slot-note">Queue uses these active day and time slots for auto-scheduling.</span>
+                    <span class="queue-slot-note">{{ t("settings.queue.schedule_note") }}</span>
                 </div>
 
                 <div v-if="queueSlotsFor(account.id).length" class="queue-slot-list">
@@ -898,28 +916,28 @@ async function selectProvider(option: ProviderOption) {
                     @drop.prevent="dropQueueSlot(account.id, index)"
                     @dragend="endQueueSlotDrag"
                   >
-                    <button class="queue-slot-drag" type="button" title="Drag to reorder">⋮⋮</button>
+                    <button class="queue-slot-drag" type="button" :title="t('settings.queue.drag_to_reorder')">⋮⋮</button>
                     <select v-model.number="slot.weekday" class="queue-slot-input">
                       <option v-for="option in weekdayOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                     </select>
                     <input v-model="slot.local_time" class="queue-slot-input" type="time" />
                     <label class="queue-slot-toggle">
                       <input v-model="slot.is_active" type="checkbox" />
-                      <span>Active</span>
+                      <span>{{ t("common.active") }}</span>
                     </label>
-                    <button class="row-link danger" @click="removeQueueSlot(account.id, index)">Remove</button>
+                    <button class="row-link danger" @click="removeQueueSlot(account.id, index)">{{ t("common.remove") }}</button>
                   </div>
                 </div>
                 <div v-else class="empty-state compact">
-                  <strong>No queue slots yet</strong>
-                  <p>Add at least one active slot if you want this channel to use Queue.</p>
+                  <strong>{{ t("settings.queue.empty_title") }}</strong>
+                  <p>{{ t("settings.queue.empty_body") }}</p>
                 </div>
-                <p v-if="hasDuplicateQueueSlots(account.id)" class="settings-error">Queue slots cannot share the same day and time.</p>
+                <p v-if="hasDuplicateQueueSlots(account.id)" class="settings-error">{{ t("settings.queue.duplicate_error") }}</p>
 
                 <div class="queue-slot-actions">
-                  <button class="row-link" @click="addQueueSlot(account.id)">Add slot</button>
+                  <button class="row-link" @click="addQueueSlot(account.id)">{{ t("settings.queue.add_slot") }}</button>
                   <button class="btn" :disabled="savingQueueAccountId === account.id" @click="saveQueueSlots(account)">
-                    {{ savingQueueAccountId === account.id ? "Saving..." : "Save queue slots" }}
+                    {{ savingQueueAccountId === account.id ? t("common.saving") : t("settings.queue.save_slots") }}
                   </button>
                 </div>
               </div>
@@ -953,8 +971,8 @@ async function selectProvider(option: ProviderOption) {
       <div class="provider-modal">
         <button class="provider-modal-close" @click="closeProviderModal">×</button>
         <div class="provider-modal-head">
-          <strong>Connect a New Channel</strong>
-          <span>Choose the network you want to connect to this workspace.</span>
+          <strong>{{ t("settings.provider_modal.title") }}</strong>
+          <span>{{ t("settings.provider_modal.subtitle") }}</span>
         </div>
 
         <div class="provider-modal-grid">
@@ -969,7 +987,7 @@ async function selectProvider(option: ProviderOption) {
             <span class="provider-option-icon" :style="{ background: option.accent }">{{ option.icon }}</span>
             <strong>{{ option.label }}</strong>
             <span>{{ option.subtitle }}</span>
-            <small>{{ option.available ? "Available now" : "Coming soon" }}</small>
+            <small>{{ option.available ? t("settings.provider_modal.available_now") : t("settings.provider_modal.coming_soon") }}</small>
           </button>
         </div>
       </div>
@@ -977,14 +995,14 @@ async function selectProvider(option: ProviderOption) {
 
     <div v-if="pendingDisconnectAccount" class="confirm-overlay" @click.self="cancelDisconnect">
       <div class="confirm-modal">
-        <p class="confirm-kicker">Confirm disconnect</p>
-        <h3>Disconnect {{ pendingDisconnectAccount.display_name }}?</h3>
+        <p class="confirm-kicker">{{ t("settings.disconnect.confirm_kicker") }}</p>
+        <h3>{{ t("settings.disconnect.confirm_title", { name: pendingDisconnectAccount.display_name }) }}</h3>
         <p class="confirm-copy">
-          This channel will be removed from your workspace. Any scheduled posts targeting it will not be published.
+          {{ t("settings.disconnect.confirm_body") }}
         </p>
         <div class="confirm-actions">
-          <button class="btn secondary" @click="cancelDisconnect">Cancel</button>
-          <button class="btn danger" @click="confirmDisconnect">Disconnect</button>
+          <button class="btn secondary" @click="cancelDisconnect">{{ t("common.cancel") }}</button>
+          <button class="btn danger" @click="confirmDisconnect">{{ t("settings.actions.disconnect") }}</button>
         </div>
       </div>
     </div>

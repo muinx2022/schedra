@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const session = useSessionState()
+const localePath = useLocalePath()
 const form = reactive({ email: "", password: "" })
 const error = ref("")
 const loading = ref(false)
@@ -41,7 +42,7 @@ async function submit() {
   try {
     const user = await apiFetch<any>("/auth/login/", { method: "POST", body: form })
     session.value = { authenticated: true, hydrated: true, user }
-    await navigateTo("/app")
+    await navigateTo(localePath("/app"))
   } catch (err: any) {
     error.value = extractApiError(err, "Login failed.")
   } finally {
@@ -146,7 +147,7 @@ async function submit() {
               </p>
             </div>
 
-            <NuxtLink to="/" class="login-home-link" title="Back to home">
+            <NuxtLink :to="localePath('/')" class="login-home-link" title="Back to home">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
@@ -154,7 +155,7 @@ async function submit() {
           </div>
 
           <div class="login-actions">
-            <NuxtLink to="/forgot-password" class="login-action-link">
+            <NuxtLink :to="localePath('/forgot-password')" class="login-action-link">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
@@ -163,7 +164,7 @@ async function submit() {
               Forgot password
             </NuxtLink>
 
-            <NuxtLink to="/register" class="login-action-link login-action-link-muted">
+            <NuxtLink :to="localePath('/register')" class="login-action-link login-action-link-muted">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 5l7 7-7 7" />
                 <path d="M5 12h13" />
@@ -253,7 +254,7 @@ async function submit() {
 
           <div class="login-footer">
             <span>Need access for a new team?</span>
-            <NuxtLink to="/register">Create workspace</NuxtLink>
+            <NuxtLink :to="localePath('/register')">Create workspace</NuxtLink>
           </div>
 
           <div class="login-meta">

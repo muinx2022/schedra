@@ -2,29 +2,40 @@
 const session = useSessionState()
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
+const localePath = useLocalePath()
+const switchLocalePath = useSwitchLocalePath()
+const { locale } = useI18n()
 const { preference: themePreference, options: themeOptions, setPreference } = useThemePreference()
 const channelsDrawerOpen = ref(false)
+const languageMenuOpen = ref(false)
 
-const isApp = computed(() => route.path.startsWith("/app"))
-const isIdeasRoute = computed(() => route.path === "/app/ideas")
-const isCampaignsRoute = computed(() => route.path.startsWith("/app/campaigns"))
-const isPostsRoute = computed(() => route.path === "/app/posts")
-const isCalendarRoute = computed(() => route.path === "/app/calendar")
-const isAnalyticsRoute = computed(() => route.path === "/app/analytics")
-const isInboxRoute = computed(() => route.path === "/app/inbox")
-const isMediaRoute = computed(() => route.path === "/app/media")
-const isSettingsRoute = computed(() => route.path === "/app/settings")
+const localePrefixRE = /^\/(en|vi)(?=\/|$)/
+const pathNoLocale = computed(() => {
+  const stripped = route.path.replace(localePrefixRE, "")
+  return stripped.length ? stripped : "/"
+})
+
+const isApp = computed(() => pathNoLocale.value.startsWith("/app"))
+const isIdeasRoute = computed(() => pathNoLocale.value === "/app/ideas")
+const isCampaignsRoute = computed(() => pathNoLocale.value.startsWith("/app/campaigns"))
+const isPostsRoute = computed(() => pathNoLocale.value === "/app/posts")
+const isCalendarRoute = computed(() => pathNoLocale.value === "/app/calendar")
+const isAnalyticsRoute = computed(() => pathNoLocale.value === "/app/analytics")
+const isInboxRoute = computed(() => pathNoLocale.value === "/app/inbox")
+const isMediaRoute = computed(() => pathNoLocale.value === "/app/media")
+const isSettingsRoute = computed(() => pathNoLocale.value === "/app/settings")
 const hasActiveChannelFilter = computed(() => typeof route.query.account === "string" && !!route.query.account)
 
 const navItems = computed(() => [
-  { to: "/app/ideas", label: "Ideas", icon: "ideas", active: isIdeasRoute.value },
-  { to: "/app/campaigns", label: "Campaigns", icon: "campaigns", active: isCampaignsRoute.value },
-  { to: "/app/posts", label: "Publish", icon: "publish", active: isPostsRoute.value && !hasActiveChannelFilter.value },
-  { to: "/app/calendar", label: "Calendar", icon: "calendar", active: isCalendarRoute.value },
-  { to: "/app/analytics", label: "Analytics", icon: "analytics", active: isAnalyticsRoute.value },
-  { to: "/app/inbox", label: "Inbox", icon: "inbox", active: isInboxRoute.value },
-  { to: "/app/media", label: "Media", icon: "media", active: isMediaRoute.value },
-  { to: "/app/settings", label: "Settings", icon: "settings", active: isSettingsRoute.value },
+  { to: "/app/ideas", labelKey: "nav.ideas", icon: "ideas", active: isIdeasRoute.value },
+  { to: "/app/campaigns", labelKey: "nav.campaigns", icon: "campaigns", active: isCampaignsRoute.value },
+  { to: "/app/posts", labelKey: "nav.publish", icon: "publish", active: isPostsRoute.value && !hasActiveChannelFilter.value },
+  { to: "/app/calendar", labelKey: "nav.calendar", icon: "calendar", active: isCalendarRoute.value },
+  { to: "/app/analytics", labelKey: "nav.analytics", icon: "analytics", active: isAnalyticsRoute.value },
+  { to: "/app/inbox", labelKey: "nav.inbox", icon: "inbox", active: isInboxRoute.value },
+  { to: "/app/media", labelKey: "nav.media", icon: "media", active: isMediaRoute.value },
+  { to: "/app/settings", labelKey: "nav.settings", icon: "settings", active: isSettingsRoute.value },
 ])
 
 const { data: accounts } = useAsyncData(
@@ -40,16 +51,16 @@ async function logoutUser() {
     // Reset local session even if the backend session has already expired.
   } finally {
     session.value = { authenticated: false, hydrated: true }
-    await navigateTo("/login")
+    await navigateTo(localePath("/login"))
   }
 }
 
 function openAppNavItem(to: string) {
   if (to === "/app/posts") {
-    router.push("/app/posts")
+    router.push(localePath("/app/posts"))
     return
   }
-  router.push(to)
+  router.push(localePath(to))
 }
 
 function accountPlatformClass(account: any): string {
@@ -67,13 +78,14 @@ function accountPlatformClass(account: any): string {
 
 watch(() => route.fullPath, () => {
   channelsDrawerOpen.value = false
+  languageMenuOpen.value = false
 })
 </script>
 
 <template>
   <div :class="['shell', isApp ? 'shell-app' : 'shell-public']">
     <aside v-if="isApp" class="sidebar">
-      <NuxtLink to="/app" class="brand sidebar-brand">
+      <NuxtLink :to="localePath('/app')" class="brand sidebar-brand">
         <span class="brand-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
@@ -91,28 +103,28 @@ watch(() => route.fullPath, () => {
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"
-          :to="item.to"
+          :to="localePath(item.to)"
           :class="{ 'nav-link-active': item.active }"
           @click.prevent="openAppNavItem(item.to)"
         >
-          <AppNavIcon :name="item.icon" class="nav-icon" /> {{ item.label }}
+          <AppNavIcon :name="item.icon" class="nav-icon" /> {{ t(item.labelKey) }}
         </NuxtLink>
       </nav>
 
       <div class="sidebar-channels">
         <div class="sidebar-channels-header">
-          <span class="sidebar-section-label">Channels</span>
-          <NuxtLink to="/app/settings" class="sidebar-channels-add" title="Add channel">+</NuxtLink>
+          <span class="sidebar-section-label">{{ t("common.channels") }}</span>
+          <NuxtLink :to="localePath('/app/settings')" class="sidebar-channels-add" :title="t('nav.settings')">+</NuxtLink>
         </div>
         <div v-if="!accounts?.length" class="sidebar-channels-empty">
-          <NuxtLink to="/app/settings" class="sidebar-connect-btn">+ Connect a channel</NuxtLink>
+          <NuxtLink :to="localePath('/app/settings')" class="sidebar-connect-btn">+ {{ t("common.connect_channel") }}</NuxtLink>
         </div>
         <button
           v-for="acc in accounts"
           :key="acc.id"
           class="sidebar-channel-item"
           :class="{ active: route.query.account == acc.id }"
-          @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
+          @click="router.push({ path: localePath('/app/posts'), query: { account: String(acc.id) } })"
         >
           <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
             <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
@@ -123,9 +135,18 @@ watch(() => route.fullPath, () => {
 
       <div class="sidebar-footer">
         <ClientOnly>
-          <div class="stack">
+          <div class="stack" style="gap:10px">
+            <div class="lang-switch">
+              <button class="btn secondary lang-btn" type="button" @click="languageMenuOpen = !languageMenuOpen">
+                {{ locale === "vi" ? "VI" : "EN" }}
+              </button>
+              <div v-if="languageMenuOpen" class="lang-menu">
+                <NuxtLink class="lang-item" :to="switchLocalePath('en')">English</NuxtLink>
+                <NuxtLink class="lang-item" :to="switchLocalePath('vi')">Tiếng Việt</NuxtLink>
+              </div>
+            </div>
             <span class="muted" style="font-size:12px">{{ session.user?.workspace?.name }}</span>
-            <button class="btn secondary" style="font-size:13px;padding:7px 14px" type="button" @click="logoutUser">Log out</button>
+            <button class="btn secondary" style="font-size:13px;padding:7px 14px" type="button" @click="logoutUser">{{ t("common.log_out") }}</button>
           </div>
         </ClientOnly>
       </div>
@@ -133,7 +154,7 @@ watch(() => route.fullPath, () => {
 
     <template v-if="isApp">
       <div class="mobile-app-bar">
-        <NuxtLink to="/app" class="mobile-brand">
+        <NuxtLink :to="localePath('/app')" class="mobile-brand">
           <span class="brand-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
@@ -146,7 +167,12 @@ watch(() => route.fullPath, () => {
           </span>
           Schedra
         </NuxtLink>
-        <button class="mobile-channel-button" type="button" @click="channelsDrawerOpen = true">Channels</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <NuxtLink class="mobile-channel-button" :to="switchLocalePath(locale === 'vi' ? 'en' : 'vi')" title="Switch language">
+            {{ locale === "vi" ? "EN" : "VI" }}
+          </NuxtLink>
+          <button class="mobile-channel-button" type="button" @click="channelsDrawerOpen = true">{{ t("common.channels") }}</button>
+        </div>
       </div>
 
       <nav class="mobile-bottom-nav" aria-label="App navigation">
@@ -158,7 +184,7 @@ watch(() => route.fullPath, () => {
           @click="openAppNavItem(item.to)"
         >
           <AppNavIcon :name="item.icon" />
-          {{ item.label }}
+          {{ t(item.labelKey) }}
         </button>
       </nav>
 
@@ -167,21 +193,21 @@ watch(() => route.fullPath, () => {
           <aside class="mobile-drawer">
             <div class="mobile-drawer-head">
               <div>
-                <strong>Channels</strong>
-                <span>{{ accounts?.length || 0 }} connected</span>
+                <strong>{{ t("common.channels") }}</strong>
+                <span>{{ t("common.connected_count", { count: accounts?.length || 0 }) }}</span>
               </div>
               <button type="button" class="drawer-close" @click="channelsDrawerOpen = false">x</button>
             </div>
 
             <div v-if="!accounts?.length" class="sidebar-channels-empty">
-              <NuxtLink to="/app/settings" class="sidebar-connect-btn">+ Connect a channel</NuxtLink>
+              <NuxtLink :to="localePath('/app/settings')" class="sidebar-connect-btn">+ {{ t("common.connect_channel") }}</NuxtLink>
             </div>
             <button
               v-for="acc in accounts"
               :key="acc.id"
               class="sidebar-channel-item"
               :class="{ active: route.query.account == acc.id }"
-              @click="router.push({ path: '/app/posts', query: { account: String(acc.id) } })"
+              @click="router.push({ path: localePath('/app/posts'), query: { account: String(acc.id) } })"
             >
               <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
                 <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
@@ -194,7 +220,7 @@ watch(() => route.fullPath, () => {
     </template>
 
     <header v-else class="topbar topbar-marketing">
-      <NuxtLink to="/" class="brand">
+      <NuxtLink :to="localePath('/')" class="brand">
         <span class="brand-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.12"/>
@@ -208,11 +234,20 @@ watch(() => route.fullPath, () => {
         Schedra
       </NuxtLink>
       <nav class="nav nav-marketing" aria-label="Marketing">
-        <NuxtLink to="/#buf-features">Features</NuxtLink>
-        <NuxtLink to="/#buf-channels">Channels</NuxtLink>
-        <NuxtLink to="/#buf-pricing">Pricing</NuxtLink>
+        <NuxtLink :to="localePath('/') + '#buf-features'">{{ t("marketing.features") }}</NuxtLink>
+        <NuxtLink :to="localePath('/') + '#buf-channels'">{{ t("marketing.channels") }}</NuxtLink>
+        <NuxtLink :to="localePath('/') + '#buf-pricing'">{{ t("marketing.pricing") }}</NuxtLink>
       </nav>
       <div class="topbar-marketing-right">
+        <div class="lang-switch">
+          <button class="btn secondary lang-btn" type="button" @click="languageMenuOpen = !languageMenuOpen">
+            {{ locale === "vi" ? "VI" : "EN" }}
+          </button>
+          <div v-if="languageMenuOpen" class="lang-menu">
+            <NuxtLink class="lang-item" :to="switchLocalePath('en')">English</NuxtLink>
+            <NuxtLink class="lang-item" :to="switchLocalePath('vi')">Tiếng Việt</NuxtLink>
+          </div>
+        </div>
         <div class="theme-switcher" role="group" aria-label="Theme">
           <NuxtLink
             v-for="option in themeOptions"
@@ -227,12 +262,12 @@ watch(() => route.fullPath, () => {
         </div>
         <ClientOnly>
           <template v-if="!session.authenticated">
-            <NuxtLink class="btn secondary topbar-btn-ghost" to="/login">Log in</NuxtLink>
-            <NuxtLink class="btn topbar-btn-primary" to="/register">Get started free</NuxtLink>
+            <NuxtLink class="btn secondary topbar-btn-ghost" :to="localePath('/login')">{{ t("common.log_in") }}</NuxtLink>
+            <NuxtLink class="btn topbar-btn-primary" :to="localePath('/register')">{{ t("marketing.get_started_free") }}</NuxtLink>
           </template>
           <template v-else>
-            <NuxtLink class="btn secondary topbar-btn-ghost" to="/app">Workspace</NuxtLink>
-            <NuxtLink class="btn topbar-btn-primary" to="/app/posts">Open publishing</NuxtLink>
+            <NuxtLink class="btn secondary topbar-btn-ghost" :to="localePath('/app')">{{ t("common.workspace") }}</NuxtLink>
+            <NuxtLink class="btn topbar-btn-primary" :to="localePath('/app/posts')">{{ t("marketing.open_publishing") }}</NuxtLink>
           </template>
         </ClientOnly>
       </div>
@@ -404,6 +439,44 @@ watch(() => route.fullPath, () => {
 .theme-link.active {
   background: var(--surface-muted);
   color: var(--ink);
+}
+
+.lang-switch {
+  position: relative;
+}
+
+.lang-btn {
+  padding: 6px 10px !important;
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.lang-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 140px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 14px;
+  box-shadow: var(--shadow-strong);
+  padding: 6px;
+  z-index: 90;
+}
+
+.lang-item {
+  display: flex;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.lang-item:hover {
+  background: var(--surface-muted);
 }
 
 .mobile-app-bar,

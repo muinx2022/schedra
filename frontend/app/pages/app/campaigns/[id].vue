@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+const localePath = useLocalePath()
+const intlLocale = useIntlLocale()
 
 type MediaAsset = {
   id: string
@@ -124,7 +126,7 @@ function formatSeconds(totalSeconds: number) {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -188,7 +190,7 @@ function closeMediaLightbox() {
   <div class="campaign-detail-page">
     <div class="detail-hero">
       <div>
-        <NuxtLink to="/app/campaigns" class="back-link">← Back to campaigns</NuxtLink>
+        <NuxtLink :to="localePath('/app/campaigns')" class="back-link">← Back to campaigns</NuxtLink>
         <p class="detail-kicker">Campaign detail</p>
         <h1>{{ campaign?.title || "Campaign" }}</h1>
         <p v-if="campaign" class="detail-subtitle">
@@ -282,7 +284,7 @@ function closeMediaLightbox() {
               <button type="button" class="campaign-btn campaign-btn-primary" :disabled="!canCreateDrafts" @click="createDrafts">
                 {{ creatingDrafts ? "Creating..." : "Create drafts" }}
               </button>
-              <NuxtLink to="/app/posts?tab=drafts" class="campaign-btn campaign-btn-secondary">Open drafts</NuxtLink>
+              <NuxtLink :to="localePath('/app/posts') + '?tab=drafts'" class="campaign-btn campaign-btn-secondary">Open drafts</NuxtLink>
             </div>
           </div>
 

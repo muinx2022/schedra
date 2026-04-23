@@ -1,0 +1,313 @@
+{
+  "nav": {
+    "ideas": "Ý tưởng",
+    "campaigns": "Chiến dịch",
+    "publish": "Đăng bài",
+    "calendar": "Lịch",
+    "analytics": "Phân tích",
+    "inbox": "Hộp thư",
+    "media": "Media",
+    "settings": "Cài đặt"
+  },
+  "common": {
+    "channels": "Kênh",
+    "connected_count": "{count} đã kết nối",
+    "connect_channel": "Kết nối kênh",
+    "done": "Xong",
+    "all": "Tất cả",
+    "open": "Mở",
+    "channel": "Kênh",
+    "cancel": "Hủy",
+    "remove": "Xóa",
+    "active": "Hoạt động",
+    "saving": "Đang lưu...",
+    "updated": "Cập nhật",
+    "view": "Xem",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "unknown": "Không rõ",
+    "not_available": "Không có",
+    "log_in": "Đăng nhập",
+    "log_out": "Đăng xuất",
+    "workspace": "Không gian làm việc"
+  },
+  "analytics": {
+    "kicker": "Phân tích",
+    "title": "Hiệu suất workspace",
+    "subtitle": "Theo dõi sức khỏe phân phối và insight Meta đã đồng bộ theo ngày và theo kênh.",
+    "modes": {
+      "delivery": "Phân phối",
+      "provider": "Nhà cung cấp"
+    },
+    "errors": {
+      "load_failed": "Không thể tải analytics."
+    },
+    "provider_sync": {
+      "queued_message": "Đã xếp hàng làm mới dữ liệu. Worker nền sẽ cập nhật insight Meta.",
+      "queue_failed": "Không thể xếp hàng làm mới dữ liệu."
+    }
+  },
+  "calendar": {
+    "kicker": "Lịch đăng bài",
+    "title": "Lịch tuần và lịch sử",
+    "subtitle": "Xem bài sắp tới trong hàng đợi, bài đã khóa lịch, và quay lại nhanh trang đăng bài.",
+    "summary": {
+      "upcoming": "Sắp tới",
+      "published": "Đã đăng"
+    },
+    "sections": {
+      "this_week": "Tuần này",
+      "upcoming_timeline": "Dòng thời gian sắp tới",
+      "queue_health": "Tình trạng Queue",
+      "next_actions": "Việc cần làm",
+      "history": "Lịch sử",
+      "published_results": "Kết quả đăng & phân phối"
+    },
+    "unscheduled": "Chưa lên lịch",
+    "no_page": "Chưa có trang",
+    "untitled_post": "Bài chưa có tiêu đề",
+    "media_count": "{count} media",
+    "day_empty": "Không có bài",
+    "empty_queue": "Chưa có bài nào trong hàng đợi hoặc đã lên lịch.",
+    "empty_history": "Chưa có lịch sử đã đăng."
+  },
+  "media": {
+    "kicker": "Thư viện tài nguyên",
+    "title": "Thư viện media",
+    "upload": "Tải lên",
+    "uploading": "Đang tải lên...",
+    "browse": "chọn tệp",
+    "drop_or_browse_prefix": "Thả media vào đây hoặc",
+    "empty": "Chưa có media. Hãy tải lên ảnh hoặc video đầu tiên ở phía trên.",
+    "asset_count": "{count} tệp"
+  },
+  "campaigns": {
+    "kicker": "Quản lý chiến dịch",
+    "title": "Chiến dịch",
+    "subtitle": "Quản lý chiến dịch trong một danh sách. Tạo chiến dịch mới tại đây, sau đó mở từng chiến dịch để tạo segment và tạo bản nháp bài đăng.",
+    "all_campaigns": "Tất cả chiến dịch",
+    "campaign_count": "{count} chiến dịch",
+    "empty": "Chưa có chiến dịch. Hãy tạo một chiến dịch trước, sau đó mở để tạo segment và tạo bản nháp bài đăng.",
+    "media": {
+      "text_only": "Chỉ văn bản",
+      "video": "Video",
+      "images_count": "{count} ảnh"
+    },
+    "segments_count": "{count} segment",
+    "drafts_count": "{count} bản nháp",
+    "actions": {
+      "create": "Tạo chiến dịch"
+    }
+  },
+  "ideas": {
+    "kicker": "Quy trình nội dung",
+    "title": "Ý tưởng",
+    "subtitle": "Ghi lại ý tưởng, kéo thả qua các giai đoạn và quản lý trực tiếp.",
+    "columns": {
+      "unassigned": "Chưa phân loại",
+      "todo": "Cần làm",
+      "in_progress": "Đang làm",
+      "done": "Hoàn tất"
+    },
+    "loading": "Đang tải ý tưởng...",
+    "empty": "Chưa có ý tưởng",
+    "confirm_delete": "Xóa \"{title}\"?",
+    "hint_save_shortcut": "Ctrl + Enter để lưu",
+    "errors": {
+      "load_failed": "Không thể tải ý tưởng.",
+      "save_failed": "Không thể lưu ý tưởng.",
+      "delete_failed": "Không thể xóa ý tưởng.",
+      "convert_failed": "Không thể chuyển ý tưởng thành bài đăng.",
+      "move_failed": "Không thể di chuyển ý tưởng."
+    },
+    "actions": {
+      "new": "Tạo ý tưởng",
+      "new_short": "Thêm",
+      "move_to": "Chuyển đến",
+      "convert_to_post": "Chuyển thành bài đăng",
+      "converting": "Đang chuyển...",
+      "deleting": "Đang xóa...",
+      "save_changes": "Lưu thay đổi",
+      "save_idea": "Lưu ý tưởng"
+    },
+    "modal": {
+      "create_title": "Tạo ý tưởng",
+      "edit_title": "Sửa ý tưởng"
+    },
+    "fields": {
+      "title": "Tiêu đề",
+      "title_placeholder": "Sẵn sàng, bắt đầu...",
+      "note": "Ghi chú",
+      "note_placeholder": "Thêm ghi chú...",
+      "tags": "Thẻ",
+      "tags_placeholder": "Thẻ, phân tách bằng dấu phẩy..."
+    }
+  },
+  "inbox": {
+    "kicker": "Hộp thư",
+    "title": "Tương tác bình luận",
+    "subtitle": "Xem bình luận đã đồng bộ từ các kênh hỗ trợ, đưa hội thoại qua các trạng thái triage và trả lời ngay trong cùng workspace.",
+    "refresh": "Làm mới hộp thư",
+    "queueing": "Đang xếp hàng...",
+    "errors": {
+      "load_failed": "Không thể tải hộp thư.",
+      "send_reply_failed": "Không thể gửi trả lời."
+    },
+    "empty": {
+      "no_interactive_title": "Chưa kết nối kênh tương tác",
+      "no_interactive_body": "Hãy kết nối Facebook Page hoặc Instagram Business (Meta) để dùng Inbox interactions."
+    },
+    "overview": {
+      "current_queue": "Hàng đợi hiện tại",
+      "new": "Mới",
+      "needs_first_review": "Cần xem lần đầu",
+      "reviewing": "Đang xử lý",
+      "in_active_triage": "Đang triage",
+      "resolved": "Đã xong",
+      "closed_in_view": "Đã đóng trong chế độ này",
+      "reply_enabled": "Có thể trả lời",
+      "channels_connected": "{count} kênh đã kết nối"
+    },
+    "filters": {
+      "platform": "Nền tảng",
+      "channel": "Kênh",
+      "all_channels": "Tất cả kênh",
+      "all_platforms": "Tất cả nền tảng",
+      "platform_fallback": "Nền tảng"
+    },
+    "triage": {
+      "new": "Mới",
+      "reviewing": "Đang xử lý",
+      "resolved": "Đã xong",
+      "ignored": "Bỏ qua",
+      "update_failed": "Không thể cập nhật trạng thái triage."
+    },
+    "direction": {
+      "reply": "Trả lời",
+      "comment": "Bình luận"
+    },
+    "message": {
+      "no_text_content": "Không có nội dung."
+    },
+    "time": {
+      "no_activity": "Chưa có hoạt động",
+      "just_now": "vừa xong",
+      "minutes_ago": "{count} phút trước",
+      "hours_ago": "{count} giờ trước",
+      "days_ago": "{count} ngày trước"
+    },
+    "sync": {
+      "queued": "Đã xếp hàng làm mới inbox. Worker nền sẽ kéo bình luận mới.",
+      "queue_failed": "Không thể xếp hàng làm mới inbox."
+    },
+    "list": {
+      "queue": "Hàng đợi",
+      "conversations_count": "{count} hội thoại",
+      "loading": "Đang tải hộp thư...",
+      "empty": "Chưa có thread bình luận nào khớp bộ lọc này."
+    }
+  },
+  "datetime": {
+    "weekday_short": {
+      "mon": "T2",
+      "tue": "T3",
+      "wed": "T4",
+      "thu": "T5",
+      "fri": "T6",
+      "sat": "T7",
+      "sun": "CN"
+    }
+  },
+  "marketing": {
+    "features": "Tính năng",
+    "channels": "Kênh",
+    "pricing": "Giá",
+    "get_started_free": "Bắt đầu miễn phí",
+    "open_publishing": "Mở trang đăng bài"
+  },
+  "settings": {
+    "kicker": "Cài đặt",
+    "title": "Cài đặt workspace",
+    "subtitle": "Quản lý giao diện, các kênh đã kết nối và thiết lập đăng bài mà workspace dùng hằng ngày.",
+    "connect_channel": "Kết nối kênh",
+    "fallback_user": "Người dùng workspace",
+    "fallback_workspace": "Workspace mặc định",
+    "appearance": {
+      "label": "Giao diện",
+      "theme_title": "Chủ đề",
+      "theme_subtitle": "Chọn cách workspace hiển thị trên trình duyệt này."
+    },
+    "oauth": {
+      "authorizing": "Đang xác thực {provider}",
+      "waiting_callback": "Đang chờ callback OAuth và trao đổi token.",
+      "select_entities": "Chọn {entities} {provider}",
+      "select_entities_hint": "Chỉ những {entities} bạn kết nối ở đây mới xuất hiện trong Đăng bài và Lịch.",
+      "none_found": "Không tìm thấy {entities} {provider}",
+      "already_connected": "Đã kết nối",
+      "empty_hint": {
+        "instagram": "Hãy đảm bảo tài khoản Instagram là Professional và app có đủ scope Instagram cần thiết.",
+        "linkedin": "Hãy đảm bảo tài khoản LinkedIn đã cấp các quyền cần thiết.",
+        "tiktok": "Hãy đảm bảo tài khoản TikTok được thêm vào sandbox target user và đã cấp các scope yêu cầu.",
+        "pinterest": "Hãy đảm bảo đăng nhập Pinterest có quyền truy cập ít nhất 1 board và đã cấp boards:read.",
+        "facebook": "Hãy đảm bảo tài khoản đăng nhập có quyền truy cập ít nhất 1 Facebook Page."
+      }
+    },
+    "connected_channels": {
+      "title": "Kênh đã kết nối",
+      "subtitle": "{active} / {total} kênh đang hoạt động trong workspace",
+      "empty_title": "Chưa có kênh nào được kết nối",
+      "empty_body": "Hãy kết nối một kênh, sau đó chọn các tài khoản bạn muốn dùng để đăng bài trong workspace này."
+    },
+    "queue": {
+      "duplicate_error": "Các slot Queue không được trùng ngày và giờ.",
+      "save_failed": "Lưu slot Queue thất bại",
+      "slots": "Slot Queue",
+      "hide": "Ẩn Queue",
+      "schedule_label": "Lịch Queue",
+      "schedule_note": "Queue sẽ dùng các slot ngày/giờ đang bật để tự lên lịch.",
+      "drag_to_reorder": "Kéo để sắp xếp",
+      "empty_title": "Chưa có slot Queue",
+      "empty_body": "Thêm ít nhất một slot đang bật nếu bạn muốn kênh này dùng Queue.",
+      "add_slot": "Thêm slot",
+      "save_slots": "Lưu slot Queue",
+      "slots_count": "{count} slot Queue"
+    },
+    "status": {
+      "connected": "Đã kết nối",
+      "pending": "Đang chờ",
+      "needs_reconnect": "Cần kết nối lại",
+      "connecting": "Đang kết nối..."
+    },
+    "actions": {
+      "connect": "Kết nối",
+      "disconnect": "Ngắt kết nối",
+      "disconnecting": "Đang ngắt..."
+    },
+    "provider_modal": {
+      "title": "Kết nối kênh mới",
+      "subtitle": "Chọn nền tảng bạn muốn kết nối vào workspace này.",
+      "available_now": "Dùng được ngay",
+      "coming_soon": "Sắp có"
+    },
+    "disconnect": {
+      "confirm_kicker": "Xác nhận ngắt kết nối",
+      "confirm_title": "Ngắt kết nối {name}?",
+      "confirm_body": "Kênh này sẽ bị gỡ khỏi workspace. Các bài đã lên lịch nhắm tới kênh này sẽ không được đăng."
+    }
+  },
+  "posts": {
+    "kicker": "Không gian đăng bài",
+    "title": "Bài đăng",
+    "all_channels": "Tất cả kênh",
+    "subtitle": "Quản lý bản nháp, hàng đợi và lịch đăng trên mọi kênh đã kết nối.",
+    "view_list": "Danh sách",
+    "new_post": "Tạo bài",
+    "tab_queue": "Hàng đợi",
+    "tab_drafts": "Bản nháp",
+    "tab_sent": "Đã gửi",
+    "clear_filter": "Bỏ lọc",
+    "empty_title": "Chưa có bài trong chế độ này",
+    "empty_body": "Hãy tạo bài mới hoặc chuyển sang tab khác."
+  }
+}

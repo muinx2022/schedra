@@ -2,6 +2,7 @@ export default defineNuxtRouteMiddleware(async () => {
   if (import.meta.server) return
 
   const session = useSessionState()
+  const localePath = useLocalePath()
 
   if (!session.value.hydrated) {
     try {
@@ -19,6 +20,6 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   if (!session.value.authenticated) {
-    return navigateTo("/login")
+    return navigateTo(localePath("/login"))
   }
 })

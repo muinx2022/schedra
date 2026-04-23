@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone as dt_timezone
 from dataclasses import dataclass
 import json
 import socket
@@ -10,6 +11,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.utils import timezone
 
 from common.security import decrypt_value
 from back_office.models import SocialProviderSettings
@@ -27,6 +29,9 @@ class OAuthExchangeResult:
     expires_in: int | None = None
     scopes: list[str] | None = None
     metadata: dict[str, Any] | None = None
+
+
+INTERACTION_CAPABILITY_KEYS = ("inbox_comments", "reply_comments")
 
 
 class ProviderAdapter:
@@ -52,6 +57,9 @@ class ProviderAdapter:
     def publish_post(self, target_account: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
+    def interaction_capabilities(self, target_account: dict[str, Any] | None = None) -> dict[str, bool]:
+        return {key: False for key in INTERACTION_CAPABILITY_KEYS}
+
     def get_publish_options(self, target_account: dict[str, Any]) -> dict[str, Any]:
         return {}
 
@@ -70,6 +78,14 @@ class ProviderAdapter:
         since=None,
     ) -> dict[str, Any]:
         raise NotImplementedError
+
+    def reply_to_comment(
+        self,
+        target_account: dict[str, Any],
+        parent_external_id: str,
+        body_text: str,
+    ) -> dict[str, Any]:
+        raise NotImplementedError("Comment replies are not supported for this provider.")
 
     def normalize_error(self, error: Exception) -> dict[str, Any]:
         return {"detail": str(error)}
@@ -574,6 +590,9 @@ class MetaOAuthMixin:
 class FacebookAdapter(MetaOAuthMixin, ProviderAdapter):
     provider_code = "facebook"
 
+    def interaction_capabilities(self, target_account: dict[str, Any] | None = None) -> dict[str, bool]:
+        return {"inbox_comments": True, "reply_comments": True}
+
     def publish_post(self, target_account: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
         return self._publish_facebook_page(target_account, payload)
 
@@ -663,6 +682,43 @@ class FacebookAdapter(MetaOAuthMixin, ProviderAdapter):
             "provider_post_id": response.get("id"),
             "status": "published",
             "raw": response,
+        }
+
+    def reply_to_comment(
+        self,
+        target_account: dict[str, Any],
+        parent_external_id: str,
+        body_text: str,
+    ) -> dict[str, Any]:
+        message_text = body_text.strip()
+        if not message_text:
+            raise ValueError("Reply text cannot be empty.")
+
+        if not self.is_configured:
+            return {
+                "external_id": f"{parent_external_id}-reply-{int(timezone.now().timestamp())}",
+                "body_text": message_text,
+                "published_at": timezone.now(),
+                "metadata": {"mock": True},
+            }
+
+        access_token = self._meta_access_token(target_account)
+        if not access_token:
+            raise ValueError("Missing Meta page or account access token for comment replies.")
+
+        response = self._request(
+            f"/{parent_external_id}/comments",
+            method="POST",
+            data={
+                "message": message_text,
+                "access_token": access_token,
+            },
+        )
+        return {
+            "external_id": str(response.get("id") or ""),
+            "body_text": message_text,
+            "published_at": timezone.now(),
+            "metadata": {"raw": response},
         }
 
 
@@ -2209,3 +2265,21 @@ def get_provider_adapter(provider_code: str) -> ProviderAdapter:
     if provider_code == "pinterest":
         return PinterestAdapter()
     raise ValueError(f"Unsupported provider: {provider_code}")
+
+
+def interaction_adapter_code(provider_code: str, account_type: str) -> str:
+    normalized_provider = str(provider_code or "").lower()
+    normalized_account_type = str(account_type or "").lower()
+    if normalized_account_type in {"page", "instagram_business"} and normalized_provider in {"facebook", "meta", "instagram"}:
+        return "facebook"
+    return normalized_provider
+
+
+def interaction_capabilities_for_account(*, provider_code: str, account_type: str) -> dict[str, bool]:
+    adapter = get_provider_adapter(interaction_adapter_code(provider_code, account_type))
+    return adapter.interaction_capabilities(
+        {
+            "provider_code": provider_code,
+            "account_type": account_type,
+        }
+    )

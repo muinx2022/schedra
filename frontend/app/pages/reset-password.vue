@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const localePath = useLocalePath()
 
 const form = reactive({
   password: "",
@@ -82,7 +83,7 @@ async function submit() {
               </p>
             </div>
             <NuxtLink
-              to="/login"
+              :to="localePath('/login')"
               class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-white text-[var(--muted)] transition hover:border-[#8a95a3] hover:text-[var(--ink)]"
               title="Back to login"
             >
@@ -139,7 +140,7 @@ async function submit() {
 
             <p v-if="success" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               {{ success }}
-              <NuxtLink to="/login" class="ml-1 font-semibold underline">Go to login</NuxtLink>
+              <NuxtLink :to="localePath('/login')" class="ml-1 font-semibold underline">Go to login</NuxtLink>
             </p>
             <p v-if="error" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {{ error }}

@@ -13,8 +13,8 @@
             <span>👏</span><span>🚀</span><span>❤️</span><span>📈</span><span>📣</span><span>💬</span><span>🗓️</span><span>🙌</span>
           </div>
           <div class="buf-hero-cta">
-            <NuxtLink class="btn buf-btn-brand" to="/register">Get started free</NuxtLink>
-            <NuxtLink class="btn secondary" to="/login">Sign in</NuxtLink>
+            <NuxtLink class="btn buf-btn-brand" :to="localePath('/register')">Get started free</NuxtLink>
+            <NuxtLink class="btn secondary" :to="localePath('/login')">Sign in</NuxtLink>
           </div>
           <p class="buf-trust-micro">No credit card needed · Free to get started</p>
         </div>
@@ -83,7 +83,7 @@
           <p class="muted">
             A simple board from Inbox to Planned to Ready — so nothing good disappears into a notes app.
           </p>
-          <NuxtLink to="/register" class="buf-text-link">Start capturing ideas →</NuxtLink>
+          <NuxtLink :to="localePath('/register')" class="buf-text-link">Start capturing ideas →</NuxtLink>
         </div>
         <div class="buf-feature-shot buf-shot-green">
           <div class="buf-cards">
@@ -101,7 +101,7 @@
           <p class="muted">
             Draft with previews, drop into channel queues, and schedule or publish now — without tab sprawl.
           </p>
-          <NuxtLink to="/register" class="buf-text-link">Explore publishing →</NuxtLink>
+          <NuxtLink :to="localePath('/register')" class="buf-text-link">Explore publishing →</NuxtLink>
         </div>
         <div class="buf-feature-shot buf-shot-blue">
           <div class="buf-queue">
@@ -119,7 +119,7 @@
           <p class="muted">
             Media, campaigns, analytics, and inbox — connected to the same posts your channels will receive.
           </p>
-          <NuxtLink to="/register" class="buf-text-link">Open a workspace →</NuxtLink>
+          <NuxtLink :to="localePath('/register')" class="buf-text-link">Open a workspace →</NuxtLink>
         </div>
         <div class="buf-feature-shot buf-shot-warm">
           <div class="buf-editor">
@@ -221,8 +221,8 @@
           Start free, invite your team when you’re ready, and scale publishing without the enterprise bloat.
         </p>
         <div class="buf-pricing-row">
-          <NuxtLink class="btn buf-btn-brand buf-btn-lg" to="/register">Create your free workspace</NuxtLink>
-          <NuxtLink class="btn secondary buf-btn-ghost-light" to="/login">Sign in</NuxtLink>
+          <NuxtLink class="btn buf-btn-brand buf-btn-lg" :to="localePath('/register')">Create your free workspace</NuxtLink>
+          <NuxtLink class="btn secondary buf-btn-ghost-light" :to="localePath('/login')">Sign in</NuxtLink>
         </div>
         <p class="buf-pricing-foot">No credit card · Cancel anytime</p>
         <ul class="buf-pricing-points">
@@ -236,7 +236,7 @@
     <footer class="buf-footer">
       <div class="buf-footer-grid">
         <div>
-          <NuxtLink to="/" class="buf-footer-brand">
+          <NuxtLink :to="localePath('/')" class="buf-footer-brand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
               <circle cx="7" cy="12" r="2.2" fill="currentColor"/>
@@ -251,20 +251,20 @@
         </div>
         <div>
           <h5 class="buf-foot-h">Product</h5>
-          <NuxtLink to="/#buf-features">Features</NuxtLink>
-          <NuxtLink to="/#buf-channels">Channels</NuxtLink>
-          <NuxtLink to="/#buf-pricing">Pricing</NuxtLink>
+          <NuxtLink :to="localePath('/') + '#buf-features'">Features</NuxtLink>
+          <NuxtLink :to="localePath('/') + '#buf-channels'">Channels</NuxtLink>
+          <NuxtLink :to="localePath('/') + '#buf-pricing'">Pricing</NuxtLink>
         </div>
         <div>
           <h5 class="buf-foot-h">Legal</h5>
-          <NuxtLink to="/chinh-sach-rieng-tu">Chính sách quyền riêng tư</NuxtLink>
-          <NuxtLink to="/quy-dinh-su-dung">Quy định sử dụng</NuxtLink>
-          <NuxtLink to="/tiktok-review">TikTok integration</NuxtLink>
+          <NuxtLink :to="localePath('/chinh-sach-rieng-tu')">Chính sách quyền riêng tư</NuxtLink>
+          <NuxtLink :to="localePath('/quy-dinh-su-dung')">Quy định sử dụng</NuxtLink>
+          <NuxtLink :to="localePath('/tiktok-review')">TikTok integration</NuxtLink>
         </div>
         <div>
           <h5 class="buf-foot-h">Account</h5>
-          <NuxtLink to="/register">Bắt đầu miễn phí</NuxtLink>
-          <NuxtLink to="/login">Đăng nhập</NuxtLink>
+          <NuxtLink :to="localePath('/register')">Bắt đầu miễn phí</NuxtLink>
+          <NuxtLink :to="localePath('/login')">Đăng nhập</NuxtLink>
         </div>
       </div>
       <p class="buf-copy">&copy; {{ new Date().getFullYear() }} Schedra. All rights reserved.</p>
@@ -273,6 +273,7 @@
 </template>
 
 <script setup lang="ts">
+const localePath = useLocalePath()
 const channelList = [
   { name: "Facebook", abbr: "f", cls: "facebook" },
   { name: "Instagram", abbr: "ig", cls: "instagram" },

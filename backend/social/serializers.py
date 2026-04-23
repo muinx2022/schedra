@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .adapters import interaction_capabilities_for_account
 from .models import QueueSlot, SocialAccount, SocialConnection, SocialProvider
 
 
@@ -50,6 +51,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
     provider_name = serializers.CharField(source="provider.name", read_only=True)
     channel_code = serializers.SerializerMethodField()
     channel_name = serializers.SerializerMethodField()
+    interaction_capabilities = serializers.SerializerMethodField()
 
     class Meta:
         model = SocialAccount
@@ -67,6 +69,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             "status",
             "timezone",
             "metadata",
+            "interaction_capabilities",
             "queue_slots",
             "created_at",
         ]
@@ -86,6 +89,12 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             if obj.account_type == "page":
                 return "Facebook"
         return obj.provider.name
+
+    def get_interaction_capabilities(self, obj):
+        return interaction_capabilities_for_account(
+            provider_code=obj.provider.code,
+            account_type=obj.account_type,
+        )
 
 
 class OAuthStartSerializer(serializers.Serializer):

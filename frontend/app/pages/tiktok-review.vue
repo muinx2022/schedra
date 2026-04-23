@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const session = useSessionState()
+const localePath = useLocalePath()
 
 const isAuthenticated = computed(() => session.value.hydrated && session.value.authenticated)
 
@@ -52,26 +53,26 @@ useHead({
         <div class="review-actions">
           <NuxtLink
             v-if="isAuthenticated"
-            to="/app/settings?connect=tiktok"
+            :to="localePath('/app/settings') + '?connect=tiktok'"
             class="review-btn review-btn-primary"
           >
             Open TikTok connect flow
           </NuxtLink>
-          <NuxtLink v-if="isAuthenticated" to="/app/posts" class="review-btn">
+          <NuxtLink v-if="isAuthenticated" :to="localePath('/app/posts')" class="review-btn">
             Open posts
           </NuxtLink>
-          <NuxtLink v-if="!isAuthenticated" to="/register" class="review-btn review-btn-primary">
+          <NuxtLink v-if="!isAuthenticated" :to="localePath('/register')" class="review-btn review-btn-primary">
             Create workspace
           </NuxtLink>
-          <NuxtLink v-if="!isAuthenticated" to="/login" class="review-btn">
+          <NuxtLink v-if="!isAuthenticated" :to="localePath('/login')" class="review-btn">
             Sign in
           </NuxtLink>
         </div>
 
         <div class="review-links">
-          <NuxtLink to="/chinh-sach-rieng-tu">Privacy policy</NuxtLink>
-          <NuxtLink to="/quy-dinh-su-dung">Terms of service</NuxtLink>
-          <NuxtLink to="/">Home</NuxtLink>
+          <NuxtLink :to="localePath('/chinh-sach-rieng-tu')">Privacy policy</NuxtLink>
+          <NuxtLink :to="localePath('/quy-dinh-su-dung')">Terms of service</NuxtLink>
+          <NuxtLink :to="localePath('/')">Home</NuxtLink>
         </div>
       </div>
 

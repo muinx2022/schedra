@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Export Logo PNG</title></head>
+<body style="margin:40px;font-family:sans-serif;background:#f5f5f5">
+  <h2>Schedra Logo Export</h2>
+  <canvas id="c" width="1024" height="1024" style="border:1px solid #ddd;background:#fff;width:256px;height:256px"></canvas>
+  <br><br>
+  <button onclick="download()" style="padding:12px 24px;font-size:16px;background:#1f4b39;color:#fff;border:none;border-radius:8px;cursor:pointer">
+    Download PNG 1024×1024
+  </button>
+
+  <script>
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const W = 1024, R = W / 512
+
+    // Background
+    ctx.fillStyle = '#1f4b39'
+    roundRect(ctx, 0, 0, W, W, 216 * R)
+    ctx.fill()
+
+    // Lines (behind nodes)
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+    ctx.lineWidth = 14 * R
+    ctx.lineCap = 'round'
+
+    ctx.beginPath()
+    ctx.moveTo(178 * R, 248 * R)
+    ctx.lineTo(310 * R, 178 * R)
+    ctx.stroke()
+
+    ctx.beginPath()
+    ctx.moveTo(178 * R, 268 * R)
+    ctx.lineTo(310 * R, 338 * R)
+    ctx.stroke()
+
+    // Left node (hub)
+    ctx.fillStyle = 'white'
+    circle(ctx, 158 * R, 258 * R, 38 * R)
+
+    // Top-right node
+    ctx.globalAlpha = 0.9
+    circle(ctx, 334 * R, 158 * R, 28 * R)
+
+    // Bottom-right node
+    circle(ctx, 334 * R, 358 * R, 28 * R)
+    ctx.globalAlpha = 1
+
+    // Brand name
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.font = `800 ${68 * R}px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.letterSpacing = '-1px'
+    ctx.fillText('Schedra', W / 2, 436 * R)
+
+    function circle(ctx, x, y, r) {
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + w - r, y)
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+      ctx.lineTo(x + w, y + h - r)
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+      ctx.lineTo(x + r, y + h)
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+    }
+
+    function download() {
+      const a = document.createElement('a')
+      a.download = 'schedra-logo-1024.png'
+      a.href = canvas.toDataURL('image/png')
+      a.click()
+    }
+  </script>
+</body>
+</html>

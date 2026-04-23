@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const localePath = useLocalePath()
 const form = reactive({
   full_name: "",
   workspace_name: "",
@@ -15,7 +16,7 @@ async function submit() {
   loading.value = true
   try {
     await apiFetch("/auth/register/", { method: "POST", body: form })
-    await navigateTo("/app")
+    await navigateTo(localePath("/app"))
   } catch (err: any) {
     error.value = extractApiError(err, "Registration failed.")
   } finally {
@@ -70,7 +71,7 @@ async function submit() {
               </p>
             </div>
             <NuxtLink
-              to="/login"
+              :to="localePath('/login')"
               class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-white text-[var(--muted)] transition hover:border-[#8a95a3] hover:text-[var(--ink)]"
               title="Back to login"
             >
@@ -164,7 +165,7 @@ async function submit() {
 
           <div class="mt-5 border-t border-[var(--line)] pt-5 text-sm text-[var(--muted)]">
             Already have an account?
-            <NuxtLink to="/login" class="font-semibold text-[#49515d] hover:text-[var(--ink)]">Sign in</NuxtLink>
+            <NuxtLink :to="localePath('/login')" class="font-semibold text-[#49515d] hover:text-[var(--ink)]">Sign in</NuxtLink>
           </div>
         </div>
       </section>
