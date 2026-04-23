@@ -4,16 +4,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-ARG APP_UID=10001
-ARG APP_GID=10001
-
 WORKDIR /app/backend
 
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 
-RUN groupadd --system --gid "${APP_GID}" app && \
-    useradd --system --uid "${APP_UID}" --gid app --create-home --home-dir /home/app app
+RUN groupadd --system app && \
+    useradd --system --gid app --create-home --home-dir /home/app app
 
 COPY --chown=app:app backend /app/backend
 
