@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 from datetime import datetime
 
 from django.contrib.auth.models import User
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from accounts.models import Workspace
@@ -331,6 +332,7 @@ class MetaCommentNormalizationTests(APITestCase):
 
 
 class FacebookPublishingFallbackTests(APITestCase):
+    @override_settings(SOCIAL_FORCE_MOCK=False)
     @patch("social.adapters.decrypt_value", return_value="page-token")
     @patch("social.adapters.SocialProviderSettings.load")
     def test_publish_post_falls_back_to_direct_binary_upload_when_image_url_is_rejected(self, settings_mock, _decrypt_mock):
@@ -383,6 +385,7 @@ class FacebookPublishingFallbackTests(APITestCase):
 
 
 class MetaInsightsFallbackTests(APITestCase):
+    @override_settings(SOCIAL_FORCE_MOCK=False)
     @patch("social.adapters.decrypt_value", return_value="app-secret")
     @patch("social.adapters.SocialProviderSettings.load")
     def test_fetch_daily_insights_falls_back_when_primary_metric_is_invalid(self, settings_mock, _decrypt_mock):
