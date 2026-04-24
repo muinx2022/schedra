@@ -6,7 +6,7 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from accounts.models import Workspace
-from social.adapters import FacebookAdapter, LinkedInAdapter
+from social.adapters import FacebookAdapter, LinkedInAdapter, PinterestAdapter
 from social.models import SocialAccount, SocialConnection, SocialProvider
 
 
@@ -121,6 +121,19 @@ class PinterestConnectionFlowTests(APITestCase):
         self.assertEqual(callback_response.status_code, 400)
         self.assertEqual(callback_response.data["detail"], "Invalid OAuth state.")
         adapter.exchange_code.assert_not_called()
+
+    @patch("social.adapters.SocialProviderSettings.load")
+    def test_pinterest_adapter_always_requests_required_publish_scopes(self, settings_mock):
+        settings_mock.return_value = Mock(
+            pinterest_app_id="app-id",
+            pinterest_app_secret_enc="encrypted-secret",
+            pinterest_scopes="boards:read,pins:read,pins:write",
+        )
+
+        self.assertEqual(
+            PinterestAdapter().scopes,
+            ["boards:read", "pins:read", "pins:write", "boards:write"],
+        )
 
 
 class SocialAccountCapabilityTests(APITestCase):

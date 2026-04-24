@@ -2412,6 +2412,7 @@ class PinterestAdapter(ProviderAdapter):
     AUTH_URL = "https://www.pinterest.com/oauth/"
     DEFAULT_TOKEN_URL = "https://api.pinterest.com/v5/oauth/token"
     DEFAULT_API_BASE = "https://api.pinterest.com/v5"
+    REQUIRED_SCOPES = ["boards:read", "boards:write", "pins:read", "pins:write"]
 
     @property
     def settings(self) -> SocialProviderSettings:
@@ -2437,8 +2438,12 @@ class PinterestAdapter(ProviderAdapter):
 
     @property
     def scopes(self) -> list[str]:
-        raw = self.settings.pinterest_scopes or "boards:read,boards:write,pins:read,pins:write"
-        return [s.strip() for s in raw.split(",") if s.strip()]
+        raw = self.settings.pinterest_scopes or ",".join(self.REQUIRED_SCOPES)
+        scopes = [s.strip() for s in raw.split(",") if s.strip()]
+        for required in self.REQUIRED_SCOPES:
+            if required not in scopes:
+                scopes.append(required)
+        return scopes
 
     @property
     def is_configured(self) -> bool:
