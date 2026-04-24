@@ -2437,6 +2437,10 @@ class PinterestAdapter(ProviderAdapter):
         return os.getenv("PINTEREST_API_BASE_URL", self.DEFAULT_API_BASE).strip().rstrip("/") or self.DEFAULT_API_BASE
 
     @property
+    def publish_api_base(self) -> str:
+        return os.getenv("PINTEREST_PUBLISH_API_BASE_URL", "").strip().rstrip("/") or self.api_base
+
+    @property
     def scopes(self) -> list[str]:
         raw = self.settings.pinterest_scopes or ",".join(self.REQUIRED_SCOPES)
         scopes = [s.strip() for s in raw.split(",") if s.strip()]
@@ -2509,8 +2513,17 @@ class PinterestAdapter(ProviderAdapter):
             metadata={},
         )
 
-    def _api(self, path: str, access_token: str, method: str = "GET", data: dict[str, Any] | None = None) -> dict[str, Any]:
-        url = f"{self.api_base}{path}"
+    def _api(
+        self,
+        path: str,
+        access_token: str,
+        method: str = "GET",
+        data: dict[str, Any] | None = None,
+        *,
+        use_publish_base: bool = False,
+    ) -> dict[str, Any]:
+        base_url = self.publish_api_base if use_publish_base else self.api_base
+        url = f"{base_url}{path}"
         body = json.dumps(data).encode("utf-8") if data else None
         headers: dict[str, str] = {
             "Authorization": f"Bearer {access_token}",
@@ -2609,7 +2622,7 @@ class PinterestAdapter(ProviderAdapter):
         else:
             raise ValueError("Pinterest requires at least one image or video.")
 
-        result = self._api("/pins", access_token, method="POST", data=pin_data)
+        result = self._api("/pins", access_token, method="POST", data=pin_data, use_publish_base=True)
         return {
             "provider_post_id": result.get("id"),
             "status": "published",
@@ -2619,7 +2632,7 @@ class PinterestAdapter(ProviderAdapter):
 
     def _upload_video(self, access_token: str, video_url: str) -> str:
         # Step 1: Register upload
-        reg = self._api("/media", access_token, method="POST", data={"media_type": "video"})
+        reg = self._api("/media", access_token, method="POST", data={"media_type": "video"}, use_publish_base=True)
         media_id = str(reg.get("media_id", ""))
         upload_url = reg.get("upload_url", "")
         upload_parameters: dict[str, str] = reg.get("upload_parameters") or {}
@@ -2663,7 +2676,7 @@ class PinterestAdapter(ProviderAdapter):
         # Step 4: Poll until processing complete (max 60s)
         for _ in range(20):
             time.sleep(3)
-            status_data = self._api(f"/media/{media_id}", access_token)
+            status_data = self._api(f"/media/{media_id}", access_token, use_publish_base=True)
             if status_data.get("status") == "succeeded":
                 return media_id
             if status_data.get("status") == "failed":

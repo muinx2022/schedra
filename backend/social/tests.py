@@ -135,6 +135,44 @@ class PinterestConnectionFlowTests(APITestCase):
             ["boards:read", "pins:read", "pins:write", "boards:write"],
         )
 
+    @patch.dict(
+        "os.environ",
+        {
+            "PINTEREST_API_BASE_URL": "",
+            "PINTEREST_PUBLISH_API_BASE_URL": "https://api-sandbox.pinterest.com/v5",
+        },
+    )
+    @patch("social.adapters.decrypt_value", return_value="access-token")
+    @patch("social.adapters.SocialProviderSettings.load")
+    def test_pinterest_publish_uses_sandbox_base_without_changing_read_base(self, settings_mock, _decrypt_mock):
+        settings_mock.return_value = Mock(
+            pinterest_app_id="app-id",
+            pinterest_app_secret_enc="encrypted-secret",
+            pinterest_scopes="boards:read,boards:write,pins:read,pins:write",
+        )
+        adapter = PinterestAdapter()
+        calls = []
+
+        def fake_api(path, access_token, method="GET", data=None, *, use_publish_base=False):
+            calls.append((path, access_token, method, data, use_publish_base))
+            return {"id": "pin-1", "link": "https://www.pinterest.com/pin/pin-1/"}
+
+        adapter._api = fake_api
+
+        result = adapter.publish_post(
+            {"external_id": "board-1", "access_token": "encrypted-token"},
+            {
+                "caption_text": "Demo pin",
+                "media_items": [{"kind": "image", "file_url": "https://assets.example.com/demo.jpg"}],
+            },
+        )
+
+        self.assertEqual(result["provider_post_id"], "pin-1")
+        self.assertEqual(adapter.api_base, "https://api.pinterest.com/v5")
+        self.assertEqual(adapter.publish_api_base, "https://api-sandbox.pinterest.com/v5")
+        self.assertEqual(calls[0][0], "/pins")
+        self.assertTrue(calls[0][4])
+
 
 class SocialAccountCapabilityTests(APITestCase):
     def setUp(self):
