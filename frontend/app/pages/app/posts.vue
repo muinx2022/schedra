@@ -123,9 +123,13 @@ const actionGroupRef = ref<HTMLElement | null>(null)
 const composerInitialFingerprint = ref("")
 const composerDirty = ref(false)
 const composerDirtyTrackingDepth = ref(0)
+const publishingStatusRefreshInFlight = ref(false)
 
 const toasts = ref<Toast[]>([])
 let toastId = 0
+const PUBLISH_STATUS_REFRESH_MS = 2500
+const PUBLISH_REQUEST_TIMEOUT_MS = 120000
+let publishingStatusRefreshTimer: ReturnType<typeof window.setTimeout> | null = null
 
 function onDocumentPointerDown(event: PointerEvent) {
   if (!actionMenuOpen.value) return
@@ -135,12 +139,59 @@ function onDocumentPointerDown(event: PointerEvent) {
   actionMenuOpen.value = false
 }
 
+function clearPublishingStatusRefreshTimer() {
+  if (publishingStatusRefreshTimer !== null) {
+    window.clearTimeout(publishingStatusRefreshTimer)
+    publishingStatusRefreshTimer = null
+  }
+}
+
+async function refreshPublishingStatuses() {
+  if (publishingStatusRefreshInFlight.value) return
+  publishingStatusRefreshInFlight.value = true
+  try {
+    await refreshPosts()
+  } finally {
+    publishingStatusRefreshInFlight.value = false
+  }
+}
+
+function schedulePublishingStatusRefresh(delay = PUBLISH_STATUS_REFRESH_MS) {
+  if (!import.meta.client) return
+  clearPublishingStatusRefreshTimer()
+  if (!posts.value.some((post) => post.delivery_status === "publishing")) return
+  publishingStatusRefreshTimer = window.setTimeout(async () => {
+    if (document.visibilityState === "hidden") {
+      return
+    }
+    await refreshPublishingStatuses()
+    if (posts.value.some((post) => post.delivery_status === "publishing")) {
+      schedulePublishingStatusRefresh()
+    }
+  }, delay)
+}
+
+function onDocumentVisibilityChange() {
+  if (document.visibilityState !== "visible") return
+  if (!posts.value.some((post) => post.delivery_status === "publishing")) return
+  void refreshPublishingStatuses()
+}
+
+function kickOffPublishingStatusRefresh() {
+  if (!posts.value.some((post) => post.delivery_status === "publishing")) return
+  void refreshPublishingStatuses()
+  schedulePublishingStatusRefresh(1000)
+}
+
 onMounted(() => {
   document.addEventListener("pointerdown", onDocumentPointerDown)
+  document.addEventListener("visibilitychange", onDocumentVisibilityChange)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocumentPointerDown)
+  document.removeEventListener("visibilitychange", onDocumentVisibilityChange)
+  clearPublishingStatusRefreshTimer()
 })
 
 const form = reactive({
@@ -220,6 +271,26 @@ watch(
   { immediate: true }
 )
 
+const publishingPostIds = computed(() =>
+  posts.value
+    .filter((post) => post.delivery_status === "publishing")
+    .map((post) => post.id)
+    .sort()
+)
+
+watch(
+  publishingPostIds,
+  (ids, previousIds) => {
+    if (!ids.length) {
+      clearPublishingStatusRefreshTimer()
+      return
+    }
+    const hasNewPublishingPost = ids.some((id) => !previousIds?.includes(id))
+    schedulePublishingStatusRefresh(hasNewPublishingPost ? 1000 : PUBLISH_STATUS_REFRESH_MS)
+  },
+  { immediate: true }
+)
+
 const activePosts = computed(() =>
   posts.value.filter((post) => {
     if (activeTab.value === "queue") return ["queued", "scheduled", "publishing"].includes(post.delivery_status)
@@ -260,6 +331,7 @@ const selectedChannelDescriptor = computed(() => {
   if (t === "tiktok_creator") return "TikTok Creator"
   if (t === "youtube_channel") return "YouTube Channel"
   if (t === "personal") return "LinkedIn Profile"
+  if (t === "organization") return "LinkedIn Page"
   if (t === "pinterest_board") return "Pinterest Board"
   return "Facebook Page"
 })
@@ -440,6 +512,18 @@ watch(
 
 const filteredChannel = computed(() =>
   activeAccount.value ? accounts.value.find((account) => account.id === activeAccount.value) || null : null
+)
+
+const postsHeaderTitle = computed(() =>
+  filteredChannel.value
+    ? `${t("posts.title")} · ${filteredChannel.value.display_name}`
+    : t("posts.title")
+)
+
+const postsHeaderSubtitle = computed(() =>
+  filteredChannel.value
+    ? `${accountDescriptor(filteredChannel.value)} · ${filteredChannel.value.display_name}`
+    : t("posts.subtitle")
 )
 
 const hasChannels = computed(() => accounts.value.length > 0)
@@ -721,6 +805,7 @@ function accountDescriptor(account?: SocialAccount | null) {
   if (account.account_type === "tiktok_creator") return "TikTok Creator"
   if (account.account_type === "youtube_channel") return "YouTube Channel"
   if (account.account_type === "personal") return "LinkedIn Profile"
+  if (account.account_type === "organization") return "LinkedIn Page"
   if (account.account_type === "pinterest_board") return "Pinterest Board"
   return "Facebook Page"
 }
@@ -731,6 +816,7 @@ function accountBadgeLabel(account?: SocialAccount | null) {
   if (account.account_type === "tiktok_creator") return "TT"
   if (account.account_type === "youtube_channel") return "YT"
   if (account.account_type === "personal") return "LI"
+  if (account.account_type === "organization") return "LI"
   if (account.account_type === "pinterest_board") return "PT"
   return "FB"
 }
@@ -914,7 +1000,7 @@ function mediaValidationError(): string | null {
     } else if (t === "page") {
       if (isMixed) return "Facebook doesn't support mixing images and videos in one post."
       if (hasVideos && videos.length > 1) return "Facebook only supports one video per post."
-    } else if (t === "personal") {
+    } else if (t === "personal" || t === "organization") {
       if (isMixed) return "LinkedIn doesn't support mixing images and videos in one post."
       if (hasVideos && videos.length > 1) return "LinkedIn only supports one video per post."
     } else if (t === "tiktok_creator") {
@@ -1286,7 +1372,11 @@ function mergePosts(nextPosts: Post[]) {
 
 async function dispatchPost(post: Post, strategy: Strategy): Promise<Post> {
   if (strategy === "publish") {
-    return await apiFetch<Post>(`/posts/${post.id}/publish_now/`, { method: "POST", body: {} })
+    return await apiFetch<Post>(`/posts/${post.id}/publish_now/`, {
+      method: "POST",
+      body: {},
+      timeout: PUBLISH_REQUEST_TIMEOUT_MS,
+    })
   } else if (strategy === "queue") {
     const response = await apiFetch<{ post: Post }>(`/posts/${post.id}/queue/`, { method: "POST", body: {} })
     return response.post
@@ -1352,6 +1442,7 @@ async function submit(strategy: Strategy) {
           ? `Queued ${dispatchedPostIds.length} publish tasks.`
           : "Publish task queued."
       )
+      kickOffPublishingStatusRefresh()
     } else if (strategy === "queue") {
       activeTab.value = "queue"
       showToast(form.social_accounts.length > 1 ? `Added to queue for ${form.social_accounts.length} channels.` : "Post added to queue.")
@@ -1387,10 +1478,15 @@ function runNextStep(strategy: Strategy) {
 async function publishNow(postId: string) {
   publishingId.value = postId
   try {
-    const post = await apiFetch<Post>(`/posts/${postId}/publish_now/`, { method: "POST", body: {} })
+    const post = await apiFetch<Post>(`/posts/${postId}/publish_now/`, {
+      method: "POST",
+      body: {},
+      timeout: PUBLISH_REQUEST_TIMEOUT_MS,
+    })
     mergePosts([post])
     activeTab.value = "queue"
     showToast("Publish task queued.")
+    kickOffPublishingStatusRefresh()
   } catch (e: any) {
     showToast(extractApiError(e, "Failed to publish"), "error")
   } finally {
@@ -1484,6 +1580,10 @@ function postExcerpt(post: Post) {
   return text.length > 220 ? `${text.slice(0, 220)}...` : text
 }
 
+function postCaptionPreview(post: Post) {
+  return postExcerpt(post)
+}
+
 function postTime(post: Post) {
   const raw = post.scheduled_at || post.published_at || post.created_at
   return new Date(raw).toLocaleTimeString(intlLocale.value, {
@@ -1521,8 +1621,8 @@ function pageHint() {
       <header class="mb-1 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div class="space-y-1">
           <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("posts.kicker") }}</p>
-          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("posts.title") }}</h1>
-          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">{{ t("posts.subtitle") }}</p>
+          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ postsHeaderTitle }}</h1>
+          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">{{ postsHeaderSubtitle }}</p>
         </div>
         <div class="posts-header-actions">
           <button class="header-btn" type="button">{{ t("posts.view_list") }}</button>
@@ -1549,7 +1649,7 @@ function pageHint() {
 
         <div class="toolbar-filters">
           <button class="toolbar-chip" type="button">
-            {{ filteredChannel ? filteredChannel.display_name : t("posts.all_channels") }}
+            {{ filteredChannel ? `${filteredChannel.display_name} · ${accountDescriptor(filteredChannel)}` : t("posts.all_channels") }}
           </button>
           <button v-if="filteredChannel" class="toolbar-chip" type="button" @click="activeAccount = ''">
             {{ t("posts.clear_filter") }}
@@ -1582,14 +1682,13 @@ function pageHint() {
                       <strong>{{ accountFor(post)?.display_name || "No channel selected" }}</strong>
                       <span class="post-status-line">
                         <span v-if="isRunningStatus(post.delivery_status)" class="status-spinner" aria-hidden="true"></span>
-                        <span>{{ statusLabel(post.delivery_status) }} · {{ shortDateTime(post.scheduled_at || post.published_at || post.created_at) }}</span>
+                        <span>{{ accountDescriptor(accountFor(post)) }} · {{ statusLabel(post.delivery_status) }} · {{ shortDateTime(post.scheduled_at || post.published_at || post.created_at) }}</span>
                       </span>
                     </div>
                   </div>
 
                   <div class="post-body-copy">
-                    <strong class="post-row-title">{{ postTitle(post) }}</strong>
-                    <p class="post-excerpt">{{ postExcerpt(post) }}</p>
+                    <p class="post-caption-preview">{{ postCaptionPreview(post) }}</p>
                     <p v-if="postErrorDetail(post)" class="post-error-copy">{{ postErrorDetail(post) }}</p>
                   </div>
 
@@ -2285,10 +2384,15 @@ function pageHint() {
   gap: 8px;
 }
 
-.post-row-title {
+.post-caption-preview {
+  margin: 0;
   color: var(--ink);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.65;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .post-excerpt {

@@ -2,9 +2,10 @@
 definePageMeta({ middleware: "auth" })
 
 const route = useRoute()
+const localePath = useLocalePath()
 
 await navigateTo({
-  path: "/app/settings",
+  path: localePath("/app/settings"),
   query: route.query,
 }, { replace: true })
 </script>

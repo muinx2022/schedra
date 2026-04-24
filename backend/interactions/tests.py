@@ -156,6 +156,8 @@ class InboxApiTests(APITestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["related_post_id"], str(target.post_id))
+        self.assertEqual(list_response.data[0]["post_label"], f"{self.facebook_account.display_name} post")
+        self.assertEqual(list_response.data[0]["latest_message_preview"], "Interested")
         self.assertEqual(
             list_response.data[0]["interaction_capabilities"],
             {"inbox_comments": True, "reply_comments": True},
@@ -169,6 +171,122 @@ class InboxApiTests(APITestCase):
         )
         self.assertEqual(patch_response.status_code, 200)
         self.assertEqual(patch_response.data["triage_status"], InteractionTriageStatus.RESOLVED)
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_sync_skips_creating_empty_threads_without_comments(self, get_adapter_mock):
+        self._create_post_target(self.facebook_account, provider_post_id="fb-post-empty")
+        adapter = Mock()
+        adapter.fetch_object_comments.return_value = {
+            "comments": [],
+            "next_cursor": "",
+        }
+        get_adapter_mock.return_value = adapter
+
+        result = sync_comments_for_account(self.facebook_account)
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(InteractionThread.objects.count(), 0)
+        self.assertEqual(InteractionMessage.objects.count(), 0)
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_sync_creates_separate_threads_per_provider_post(self, get_adapter_mock):
+        first_target = self._create_post_target(self.facebook_account, provider_post_id="fb-post-a")
+        second_target = self._create_post_target(self.facebook_account, provider_post_id="fb-post-b")
+        adapter = Mock()
+
+        def fetch_object_comments(_payload, external_object_id, **_kwargs):
+            return {
+                "comments": [
+                    {
+                        "external_id": f"{external_object_id}-comment-1",
+                        "parent_external_id": "",
+                        "author_name": "Customer",
+                        "author_external_id": f"{external_object_id}-author",
+                        "body_text": f"Comment for {external_object_id}",
+                        "published_at": timezone.now(),
+                        "metadata": {},
+                    }
+                ],
+                "next_cursor": "",
+            }
+
+        adapter.fetch_object_comments.side_effect = fetch_object_comments
+        get_adapter_mock.return_value = adapter
+
+        result = sync_comments_for_account(self.facebook_account)
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(InteractionThread.objects.count(), 2)
+        self.assertEqual(InteractionMessage.objects.count(), 2)
+        self.assertTrue(InteractionThread.objects.filter(post_target=first_target, external_object_id="fb-post-a").exists())
+        self.assertTrue(InteractionThread.objects.filter(post_target=second_target, external_object_id="fb-post-b").exists())
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_sync_recovers_existing_empty_thread_by_refetching_without_since(self, get_adapter_mock):
+        target = self._create_post_target(self.facebook_account, provider_post_id="fb-post-recover")
+        empty_thread = InteractionThread.objects.create(
+            workspace=self.workspace,
+            social_account=self.facebook_account,
+            post_target=target,
+            thread_type=InteractionThreadType.COMMENTS,
+            external_object_id="fb-post-recover",
+            last_synced_at=timezone.now(),
+            sync_cursor="stale-cursor",
+        )
+        adapter = Mock()
+
+        def fetch_object_comments(_payload, external_object_id, *, cursor=None, since=None):
+            self.assertEqual(external_object_id, "fb-post-recover")
+            self.assertIsNone(cursor)
+            self.assertIsNone(since)
+            return {
+                "comments": [
+                    {
+                        "external_id": "recover-comment-1",
+                        "parent_external_id": "",
+                        "author_name": "Recovered Customer",
+                        "author_external_id": "recover-author-1",
+                        "body_text": "Recovered comment",
+                        "published_at": timezone.now(),
+                        "metadata": {},
+                    }
+                ],
+                "next_cursor": "",
+            }
+
+        adapter.fetch_object_comments.side_effect = fetch_object_comments
+        get_adapter_mock.return_value = adapter
+
+        result = sync_comments_for_account(self.facebook_account)
+
+        self.assertEqual(result["status"], "success")
+        empty_thread.refresh_from_db()
+        self.assertEqual(empty_thread.messages.count(), 1)
+        self.assertEqual(empty_thread.messages.first().body_text, "Recovered comment")
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_sync_deletes_existing_empty_thread_when_provider_has_no_comments(self, get_adapter_mock):
+        target = self._create_post_target(self.facebook_account, provider_post_id="fb-post-prune")
+        InteractionThread.objects.create(
+            workspace=self.workspace,
+            social_account=self.facebook_account,
+            post_target=target,
+            thread_type=InteractionThreadType.COMMENTS,
+            external_object_id="fb-post-prune",
+            last_synced_at=timezone.now(),
+            sync_cursor="stale-cursor",
+        )
+        adapter = Mock()
+        adapter.fetch_object_comments.return_value = {
+            "comments": [],
+            "next_cursor": "",
+        }
+        get_adapter_mock.return_value = adapter
+
+        result = sync_comments_for_account(self.facebook_account)
+
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(InteractionThread.objects.filter(external_object_id="fb-post-prune").exists())
 
     @patch("interactions.views.sync_inbox_comments_workspace.delay")
     def test_sync_endpoint_queues_refresh(self, delay_mock):
@@ -229,6 +347,48 @@ class InboxApiTests(APITestCase):
         self.assertEqual(reply.body_text, "Sent pricing in DM.")
         self.assertEqual(thread.last_message_at, reply.published_at)
         self.assertEqual(response.data["messages"][-1]["direction"], InteractionDirection.OUTBOUND)
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_reply_endpoint_accepts_parent_external_id(self, get_adapter_mock):
+        self._create_post_target(self.facebook_account, provider_post_id="fb-post-3b")
+        adapter = Mock()
+        adapter.fetch_object_comments.return_value = {
+            "comments": [
+                {
+                    "external_id": "comment-external-1",
+                    "parent_external_id": "",
+                    "author_name": "Carol",
+                    "author_external_id": "carol-1",
+                    "body_text": "Need pricing.",
+                    "published_at": timezone.now() - timedelta(minutes=2),
+                    "metadata": {},
+                }
+            ],
+            "next_cursor": "",
+        }
+        adapter.reply_to_comment.return_value = {
+            "external_id": "reply-external-1",
+            "body_text": "Sent pricing in DM.",
+            "published_at": timezone.now(),
+            "metadata": {"provider": "facebook"},
+        }
+        get_adapter_mock.return_value = adapter
+        sync_comments_for_account(self.facebook_account)
+
+        thread = InteractionThread.objects.get(social_account=self.facebook_account, external_object_id="fb-post-3b")
+        response = self.client.post(
+            f"/api/inbox/threads/{thread.id}/reply/",
+            {
+                "parent_message_id": "comment-external-1",
+                "body_text": " Sent pricing in DM. ",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        reply = InteractionMessage.objects.get(thread=thread, external_id="reply-external-1")
+        self.assertEqual(reply.parent_external_id, "comment-external-1")
+        self.assertEqual(reply.parent_message.external_id, "comment-external-1")
 
     @patch("interactions.services.get_provider_adapter")
     def test_reply_endpoint_rejects_invalid_targets_and_empty_body(self, get_adapter_mock):
@@ -351,3 +511,194 @@ class InboxApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["detail"], "Inbox sync is not supported for this channel.")
         delay_mock.assert_not_called()
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_community_posts_endpoint_returns_provider_posts_without_local_targets(self, get_adapter_mock):
+        adapter = Mock()
+        adapter.fetch_community_posts.return_value = [
+            {
+                "external_object_id": "fb-post-empty",
+                "title": "No comments yet",
+                "body_text": "No comments",
+                "published_at": timezone.now() - timedelta(hours=2),
+                "permalink_url": "https://facebook.com/posts/empty",
+                "preview_image_url": "",
+                "comment_count": 0,
+            },
+            {
+                "external_object_id": "fb-post-trekky-1",
+                "title": "Test fb post",
+                "body_text": "Test fb post body",
+                "published_at": timezone.now() - timedelta(hours=1),
+                "permalink_url": "https://facebook.com/posts/1",
+                "preview_image_url": "",
+                "comment_count": 1,
+            }
+        ]
+        get_adapter_mock.return_value = adapter
+
+        response = self.client.get(f"/api/inbox/community/{self.facebook_account.id}/posts/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["external_object_id"], "fb-post-trekky-1")
+        self.assertEqual(response.data[0]["thread_id"], None)
+        self.assertEqual(response.data[0]["account_name"], self.facebook_account.display_name)
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_community_post_detail_endpoint_returns_provider_comments(self, get_adapter_mock):
+        adapter = Mock()
+        adapter.fetch_community_post_detail.return_value = {
+            "external_object_id": "fb-post-trekky-2",
+            "title": "Provider post",
+            "body_text": "Provider body",
+            "published_at": timezone.now() - timedelta(hours=2),
+            "permalink_url": "https://facebook.com/posts/2",
+            "preview_image_url": "",
+            "comment_count": 2,
+        }
+        adapter.fetch_object_comments.return_value = {
+            "comments": [
+                {
+                    "external_id": "comment-1",
+                    "parent_external_id": "",
+                    "author_name": "Customer One",
+                    "author_external_id": "customer-1",
+                    "body_text": "First comment",
+                    "published_at": timezone.now() - timedelta(minutes=9),
+                    "metadata": {},
+                },
+                {
+                    "external_id": "comment-2",
+                    "parent_external_id": "comment-1",
+                    "author_name": self.facebook_account.display_name,
+                    "author_external_id": self.facebook_account.external_id,
+                    "body_text": "Reply from page",
+                    "published_at": timezone.now() - timedelta(minutes=4),
+                    "metadata": {},
+                },
+            ],
+            "next_cursor": "",
+        }
+        get_adapter_mock.return_value = adapter
+
+        response = self.client.get(f"/api/inbox/community/{self.facebook_account.id}/posts/fb-post-trekky-2/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["external_object_id"], "fb-post-trekky-2")
+        self.assertEqual(len(response.data["messages"]), 2)
+        self.assertEqual(response.data["messages"][0]["direction"], InteractionDirection.INBOUND)
+        self.assertEqual(response.data["messages"][1]["direction"], InteractionDirection.OUTBOUND)
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_community_post_comment_endpoint_creates_outbound_post_comment(self, get_adapter_mock):
+        adapter = Mock()
+        adapter.comment_on_post.return_value = {
+            "external_id": "comment-new-1",
+            "body_text": "Posting from community box",
+            "published_at": timezone.now(),
+            "metadata": {"provider": "facebook"},
+        }
+        adapter.fetch_community_post_detail.return_value = {
+            "external_object_id": "fb-post-comment-1",
+            "title": "Provider post",
+            "body_text": "Provider body",
+            "published_at": timezone.now() - timedelta(hours=1),
+            "permalink_url": "https://facebook.com/posts/3",
+            "preview_image_url": "",
+            "comment_count": 1,
+        }
+        adapter.fetch_object_comments.return_value = {
+            "comments": [
+                {
+                    "external_id": "comment-new-1",
+                    "parent_external_id": "",
+                    "author_name": self.facebook_account.display_name,
+                    "author_external_id": self.facebook_account.external_id,
+                    "body_text": "Posting from community box",
+                    "published_at": timezone.now(),
+                    "metadata": {},
+                }
+            ],
+            "next_cursor": "",
+        }
+        get_adapter_mock.return_value = adapter
+
+        response = self.client.post(
+            f"/api/inbox/community/{self.facebook_account.id}/posts/fb-post-comment-1/comment/",
+            {"body_text": " Posting from community box "},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["messages"][-1]["external_id"], "comment-new-1")
+        self.assertEqual(response.data["messages"][-1]["direction"], InteractionDirection.OUTBOUND)
+        thread = InteractionThread.objects.get(
+            social_account=self.facebook_account,
+            external_object_id="fb-post-comment-1",
+        )
+        self.assertEqual(thread.messages.count(), 1)
+        self.assertEqual(thread.messages.first().body_text, "Posting from community box")
+
+    @patch("interactions.services.get_provider_adapter")
+    def test_community_post_detail_merges_provider_comments_with_local_message_uuid(self, get_adapter_mock):
+        thread = InteractionThread.objects.create(
+            workspace=self.workspace,
+            social_account=self.facebook_account,
+            thread_type=InteractionThreadType.COMMENTS,
+            external_object_id="fb-post-local-thread",
+        )
+        message = InteractionMessage.objects.create(
+            thread=thread,
+            external_id="provider-comment-uuid",
+            parent_external_id="",
+            author_name="Customer One",
+            author_external_id="customer-1",
+            body_text="Local synced comment",
+            direction=InteractionDirection.INBOUND,
+            published_at=timezone.now(),
+            metadata={},
+        )
+        adapter = Mock()
+        adapter.fetch_community_post_detail.return_value = {
+            "external_object_id": "fb-post-local-thread",
+            "title": "Provider post",
+            "body_text": "Provider body",
+            "published_at": timezone.now() - timedelta(hours=1),
+            "permalink_url": "https://facebook.com/posts/local",
+            "preview_image_url": "",
+            "comment_count": 2,
+        }
+        adapter.fetch_object_comments.return_value = {
+            "comments": [
+                {
+                    "external_id": "provider-comment-uuid",
+                    "parent_external_id": "",
+                    "author_name": "Customer One",
+                    "author_external_id": "customer-1",
+                    "body_text": "Local synced comment",
+                    "published_at": timezone.now() - timedelta(minutes=4),
+                    "metadata": {},
+                },
+                {
+                    "external_id": "provider-comment-2",
+                    "parent_external_id": "",
+                    "author_name": "Customer Two",
+                    "author_external_id": "customer-2",
+                    "body_text": "Provider-only comment",
+                    "published_at": timezone.now() - timedelta(minutes=2),
+                    "metadata": {},
+                },
+            ],
+            "next_cursor": "",
+        }
+        get_adapter_mock.return_value = adapter
+
+        response = self.client.get(f"/api/inbox/community/{self.facebook_account.id}/posts/fb-post-local-thread/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["thread_id"], str(thread.id))
+        self.assertEqual(response.data["messages"][0]["id"], str(message.id))
+        self.assertEqual(response.data["messages"][0]["external_id"], "provider-comment-uuid")
+        self.assertEqual(response.data["messages"][1]["id"], "provider-comment-2")
+        adapter.fetch_object_comments.assert_called_once()

@@ -39,7 +39,7 @@ PROVIDER_DEFAULTS = {
     SocialProviderCode.LINKEDIN: {
         "name": "LinkedIn",
         "capabilities": {
-            "account_types": ["personal"],
+            "account_types": ["personal", "organization"],
             "content_types": ["feed_post"],
             "images": True,
         },
@@ -172,6 +172,9 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = OAuthCallbackSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         provider, connection = self._provider_connection(request, provider_code)
+        expected_state = (connection.metadata or {}).get("oauth_state")
+        if not expected_state or serializer.validated_data["state"] != expected_state:
+            return Response({"detail": "Invalid OAuth state."}, status=status.HTTP_400_BAD_REQUEST)
         adapter = get_provider_adapter(provider.code)
         callback_redirect_uri = (connection.metadata or {}).get("oauth_start_redirect_uri") or serializer.validated_data[
             "redirect_uri"
@@ -212,11 +215,13 @@ class SocialConnectionViewSet(viewsets.ReadOnlyModelViewSet):
         provider, connection = self._provider_connection(request, provider_code)
         adapter = get_provider_adapter(provider.code)
         try:
+            requested_account_type = serializer.validated_data.get("account_type") or ""
             account_payload = next(
                 (
                     item
                     for item in adapter.list_accounts(connection.access_token)
                     if item["external_id"] == serializer.validated_data["external_id"]
+                    and (not requested_account_type or item.get("account_type") == requested_account_type)
                 ),
                 None,
             )

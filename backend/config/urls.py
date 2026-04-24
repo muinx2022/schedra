@@ -24,7 +24,7 @@ from rest_framework.routers import DefaultRouter
 from campaigns.views import CampaignViewSet
 from analytics.views import AnalyticsViewSet
 from ideas.views import IdeaViewSet
-from interactions.views import InboxSyncView, InboxThreadViewSet
+from interactions.views import InboxCommunityPostCommentView, InboxCommunityPostDetailView, InboxCommunityPostsView, InboxSyncView, InboxThreadViewSet
 from media_library.views import MediaAssetViewSet
 from publishing.views import PostViewSet
 from social.views import SocialAccountViewSet, SocialConnectionViewSet
@@ -45,6 +45,9 @@ urlpatterns = [
     path("health/", lambda _request: JsonResponse({"ok": True})),
     path("api/auth/", include("accounts.urls")),
     path("api/inbox/sync/", InboxSyncView.as_view()),
+    path("api/inbox/community/<uuid:account_id>/posts/", InboxCommunityPostsView.as_view()),
+    path("api/inbox/community/<uuid:account_id>/posts/<str:external_object_id>/", InboxCommunityPostDetailView.as_view()),
+    path("api/inbox/community/<uuid:account_id>/posts/<str:external_object_id>/comment/", InboxCommunityPostCommentView.as_view()),
     path("api/", include(router.urls)),
 ]
 

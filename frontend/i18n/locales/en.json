@@ -5,7 +5,7 @@
     "publish": "Publish",
     "calendar": "Calendar",
     "analytics": "Analytics",
-    "inbox": "Inbox",
+    "inbox": "Interactions",
     "media": "Media",
     "settings": "Settings"
   },
@@ -145,18 +145,18 @@
     }
   },
   "inbox": {
-    "kicker": "Inbox",
+    "kicker": "Interactions",
     "title": "Comment interactions",
     "subtitle": "Review synced comments from supported channels, move threads through triage, and reply from the same workspace.",
-    "refresh": "Refresh inbox",
+    "refresh": "Refresh interactions",
     "queueing": "Queueing...",
     "errors": {
-      "load_failed": "Could not load inbox.",
+      "load_failed": "Could not load interactions.",
       "send_reply_failed": "Could not send reply."
     },
     "empty": {
       "no_interactive_title": "No interactive channels connected yet",
-      "no_interactive_body": "Connect a supported Meta Facebook Page or Instagram Business account to use Inbox interactions."
+      "no_interactive_body": "Connect a supported Meta Facebook Page or Instagram Business account to use interaction review."
     },
     "overview": {
       "current_queue": "Current queue",
@@ -198,13 +198,13 @@
       "days_ago": "{count}d ago"
     },
     "sync": {
-      "queued": "Inbox refresh queued. Background workers will pull new comments.",
-      "queue_failed": "Could not queue inbox refresh."
+      "queued": "Interaction refresh queued. Background workers will pull new comments.",
+      "queue_failed": "Could not queue interaction refresh."
     },
     "list": {
       "queue": "Queue",
       "conversations_count": "{count} conversation | {count} conversations",
-      "loading": "Loading inbox...",
+      "loading": "Loading interactions...",
       "empty": "No synced comment threads match this filter yet."
     }
   },

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-definePageMeta({ middleware: "auth" })
 const intlLocale = useIntlLocale()
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -61,22 +60,17 @@ type ProviderOption = {
   label: string
   subtitle: string
   accent: string
-  icon: string
   available: boolean
+}
+
+function accountSelectionKey(account: { external_id: string; account_type?: string }) {
+  return `${account.external_id}::${account.account_type || ""}`
 }
 
 const session = useSessionState()
 const route = useRoute()
 const router = useRouter()
 const { preference: themePreference, options: themeOptions, setPreference } = useThemePreference()
-const OAUTH_CALLBACK_BASE_PATH = "/app/settings"
-
-function buildOAuthCallbackBaseUrl() {
-  if (typeof window === "undefined") return OAUTH_CALLBACK_BASE_PATH
-  return `${window.location.origin}${OAUTH_CALLBACK_BASE_PATH}`
-}
-
-const oauthCallbackBaseUrl = ref(buildOAuthCallbackBaseUrl())
 const step = ref<Step>("idle")
 const flowProvider = ref<ProviderCode | null>(null)
 const availableAccounts = ref<OAuthPage[]>([])
@@ -113,10 +107,6 @@ const weekdayOptions = computed(() => [
   { value: 6, label: t("datetime.weekday_short.sun") },
 ])
 
-onMounted(() => {
-  oauthCallbackBaseUrl.value = buildOAuthCallbackBaseUrl()
-})
-
 const { data: connections, refresh: refreshConnections } = useAsyncData(
   "settings-connections",
   () => apiFetch<SocialConnection[]>("/connections/"),
@@ -142,10 +132,10 @@ const instagramAccountsCount = computed(() =>
   accounts.value.filter((item) => item.channel_code === "instagram").length
 )
 const facebookConnectedIds = computed(() =>
-  new Set(accounts.value.filter((item) => item.channel_code === "facebook").map((item) => item.external_id))
+  new Set(accounts.value.filter((item) => item.channel_code === "facebook").map((item) => accountSelectionKey(item)))
 )
 const instagramConnectedIds = computed(() =>
-  new Set(accounts.value.filter((item) => item.channel_code === "instagram").map((item) => item.external_id))
+  new Set(accounts.value.filter((item) => item.channel_code === "instagram").map((item) => accountSelectionKey(item)))
 )
 const userName = computed(() =>
   [session.value.user?.first_name, session.value.user?.last_name].filter(Boolean).join(" ") || t("settings.fallback_user")
@@ -157,16 +147,16 @@ const flowProviderLabel = computed(() => {
   return labels[flowProvider.value || ""] || flowProvider.value || "Channel"
 })
 const linkedinConnectedIds = computed(() =>
-  new Set(accounts.value.filter((a) => a.provider_code === "linkedin").map((a) => a.external_id))
+  new Set(accounts.value.filter((a) => a.provider_code === "linkedin").map((a) => accountSelectionKey(a)))
 )
 const tiktokConnectedIds = computed(() =>
-  new Set(accounts.value.filter((a) => a.provider_code === "tiktok").map((a) => a.external_id))
+  new Set(accounts.value.filter((a) => a.provider_code === "tiktok").map((a) => accountSelectionKey(a)))
 )
 const youtubeConnectedIds = computed(() =>
-  new Set(accounts.value.filter((a) => a.provider_code === "youtube").map((a) => a.external_id))
+  new Set(accounts.value.filter((a) => a.provider_code === "youtube").map((a) => accountSelectionKey(a)))
 )
 const pinterestConnectedIds = computed(() =>
-  new Set(accounts.value.filter((a) => a.provider_code === "pinterest").map((a) => a.external_id))
+  new Set(accounts.value.filter((a) => a.provider_code === "pinterest").map((a) => accountSelectionKey(a)))
 )
 const flowConnectedIds = computed(() => {
   if (flowProvider.value === "instagram") return instagramConnectedIds.value
@@ -177,16 +167,17 @@ const flowConnectedIds = computed(() => {
   return facebookConnectedIds.value
 })
 const providerOptions = computed<ProviderOption[]>(() => [
-  { code: "instagram", label: "Instagram", subtitle: "Business or Creator", accent: "#e1306c", icon: "ig", available: true },
-  { code: "threads", label: "Threads", subtitle: "Profile", accent: "#111111", icon: "@", available: false },
-  { code: "linkedin", label: "LinkedIn", subtitle: "Page or Profile", accent: "#0a66c2", icon: "in", available: true },
-  { code: "facebook", label: "Facebook", subtitle: "Page or Group", accent: "#1877f2", icon: "f", available: true },
-  { code: "bluesky", label: "Bluesky", subtitle: "Profile", accent: "#1185fe", icon: "b", available: false },
-  { code: "youtube", label: "YouTube", subtitle: "Channel", accent: "#ff0000", icon: "▶", available: true },
-  { code: "tiktok", label: "TikTok", subtitle: "Creator Profile", accent: "#111111", icon: "tt", available: true },
-  { code: "mastodon", label: "Mastodon", subtitle: "Profile", accent: "#6364ff", icon: "m", available: false },
-  { code: "pinterest", label: "Pinterest", subtitle: "Board", accent: "#e60023", icon: "p", available: true },
+  { code: "facebook", label: "Facebook", subtitle: "Page or Group", accent: "#1877f2", available: true },
+  { code: "instagram", label: "Instagram", subtitle: "Business or Creator", accent: "#e1306c", available: true },
+  { code: "linkedin", label: "LinkedIn", subtitle: "Page or Profile", accent: "#0a66c2", available: true },
+  { code: "tiktok", label: "TikTok", subtitle: "Creator Profile", accent: "#111111", available: true },
+  { code: "youtube", label: "YouTube", subtitle: "Channel", accent: "#ff0000", available: true },
+  { code: "pinterest", label: "Pinterest", subtitle: "Board", accent: "#e60023", available: true },
+  { code: "threads", label: "Threads", subtitle: "Profile", accent: "#111111", available: false },
 ])
+
+const connectableProviderOptions = computed(() => providerOptions.value.filter((option) => option.available))
+const upcomingProviderOptions = computed(() => providerOptions.value.filter((option) => !option.available))
 
 function flowEntityLabel(providerCode?: ProviderCode | null) {
   if (providerCode === "pinterest") return "board"
@@ -210,6 +201,7 @@ function availableAccountTypeLabel(account: OAuthPage) {
   if (account.account_type === "tiktok_creator") return "TikTok Creator"
   if (account.account_type === "youtube_channel") return "YouTube channel"
   if (account.account_type === "personal") return "LinkedIn profile"
+  if (account.account_type === "organization") return "LinkedIn page"
   if (account.account_type === "pinterest_board") return "Pinterest board"
   return "Facebook Page"
 }
@@ -280,6 +272,8 @@ watch(
     connections.value.length,
   ],
   async ([codeValue, errorCodeValue, errorDescriptionValue, providerQueryValue, providerParamValue, stateValue, scopesValue]) => {
+    if (!import.meta.client) return
+
     const validProviders: ProviderCode[] = ["facebook", "instagram", "linkedin", "tiktok", "youtube", "pinterest"]
     const routeProvider =
       (validProviders.includes(providerQueryValue as ProviderCode) ? providerQueryValue as ProviderCode : null)
@@ -573,12 +567,14 @@ function statusTone(status?: string) {
   return "muted"
 }
 
+function callbackPathFor(providerCode: ProviderCode) {
+  return `/oauth/${providerCode}/callback`
+}
+
 function callbackUrlFor(providerCode: ProviderCode) {
-  const pathProviders: ProviderCode[] = ["instagram", "tiktok", "youtube", "pinterest"]
-  if (pathProviders.includes(providerCode)) {
-    return `${oauthCallbackBaseUrl.value}/provider/${providerCode}`
-  }
-  return `${oauthCallbackBaseUrl.value}?provider=${providerCode}`
+  const callbackPath = callbackPathFor(providerCode)
+  if (typeof window === "undefined") return callbackPath
+  return new URL(callbackPath, window.location.origin).toString()
 }
 
 async function startConnect(providerCode: ProviderCode) {
@@ -605,12 +601,13 @@ async function handleCallback(providerCode: ProviderCode, code: string) {
   step.value = "authorizing"
   flowProvider.value = providerCode
   error.value = ""
+  const callbackState = typeof route.query.state === "string" ? route.query.state : storedOAuthState()
   try {
     const result = await apiFetch<{ connection: SocialConnection; accounts: OAuthPage[] }>(
       `/connections/${providerCode}/callback/`,
       {
         method: "POST",
-        body: { code, redirect_uri: callbackUrlFor(providerCode) },
+        body: { code, state: callbackState, redirect_uri: callbackUrlFor(providerCode) },
         timeout: providerCode === "tiktok" ? 120000 : 8000,
       }
     )
@@ -643,19 +640,19 @@ async function handleCallback(providerCode: ProviderCode, code: string) {
 
 async function connectAccount(account: OAuthPage) {
   if (!flowProvider.value) return
-  connecting.value = account.external_id
+  connecting.value = accountSelectionKey(account)
   error.value = ""
   try {
     await apiFetch(`/connections/${flowProvider.value}/connect-account/`, {
       method: "POST",
-      body: { external_id: account.external_id },
+      body: { external_id: account.external_id, account_type: account.account_type },
       timeout: flowProvider.value === "tiktok" ? 120000 : 8000,
     })
     await refreshAccounts()
     await refreshNuxtData("sidebar-accounts")
     await refreshConnections()
     // Auto-close flow if all available accounts are now connected
-    const allConnected = availableAccounts.value.every((a) => flowConnectedIds.value.has(a.external_id))
+    const allConnected = availableAccounts.value.every((a) => flowConnectedIds.value.has(accountSelectionKey(a)))
     if (allConnected) {
       setTimeout(() => {
         resetFlow()
@@ -702,8 +699,9 @@ function resetFlow() {
 }
 
 async function returnToSettingsHome() {
-  if (route.path !== "/app/settings") {
-    await router.replace({ path: "/app/settings", query: {} })
+  const settingsPath = localePath("/app/settings")
+  if (route.path !== settingsPath) {
+    await router.replace({ path: settingsPath, query: {} })
   }
 }
 
@@ -780,7 +778,7 @@ async function selectProvider(option: ProviderOption) {
             <span>{{ flowEmptyStateHint(flowProvider) }}</span>
           </div>
 
-          <article v-for="account in availableAccounts" :key="account.external_id" class="channel-row selectable">
+          <article v-for="account in availableAccounts" :key="accountSelectionKey(account)" class="channel-row selectable">
             <div class="channel-leading">
               <div class="channel-avatar" :class="platformClass(account.account_type)">
                 <PlatformIcon :platform="platformClass(account.account_type)" :size="22" />
@@ -793,7 +791,7 @@ async function selectProvider(option: ProviderOption) {
             </div>
 
             <button
-              v-if="flowConnectedIds.has(account.external_id)"
+              v-if="flowConnectedIds.has(accountSelectionKey(account))"
               class="btn secondary"
               disabled
             >
@@ -802,10 +800,10 @@ async function selectProvider(option: ProviderOption) {
             <button
               v-else
               class="btn"
-              :disabled="connecting === account.external_id"
+              :disabled="connecting === accountSelectionKey(account)"
               @click="connectAccount(account)"
             >
-              {{ connecting === account.external_id ? t("settings.status.connecting") : t("settings.actions.connect") }}
+              {{ connecting === accountSelectionKey(account) ? t("settings.status.connecting") : t("settings.actions.connect") }}
             </button>
           </article>
 
@@ -979,20 +977,40 @@ async function selectProvider(option: ProviderOption) {
           <span>{{ t("settings.provider_modal.subtitle") }}</span>
         </div>
 
-        <div class="provider-modal-grid">
-          <button
-            v-for="option in providerOptions"
-            :key="option.code"
-            class="provider-option"
-            :class="{ disabled: !option.available }"
-            :disabled="!option.available"
-            @click="selectProvider(option)"
-          >
-            <span class="provider-option-icon" :style="{ background: option.accent }">{{ option.icon }}</span>
-            <strong>{{ option.label }}</strong>
-            <span>{{ option.subtitle }}</span>
-            <small>{{ option.available ? t("settings.provider_modal.available_now") : t("settings.provider_modal.coming_soon") }}</small>
-          </button>
+        <div class="provider-modal-sections">
+          <section class="provider-modal-section">
+            <div class="provider-modal-grid">
+              <button
+                v-for="option in connectableProviderOptions"
+                :key="option.code"
+                class="provider-option"
+                @click="selectProvider(option)"
+              >
+                <span class="provider-option-icon" :style="{ background: option.accent }">
+                  <PlatformIcon :platform="option.code" :size="18" />
+                </span>
+                <strong>{{ option.label }}</strong>
+                <span>{{ option.subtitle }}</span>
+              </button>
+            </div>
+          </section>
+
+          <section v-if="upcomingProviderOptions.length" class="provider-modal-section">
+            <div class="provider-modal-grid upcoming">
+              <button
+                v-for="option in upcomingProviderOptions"
+                :key="option.code"
+                class="provider-option disabled"
+                disabled
+              >
+                <span class="provider-option-icon" :style="{ background: option.accent }">
+                  <PlatformIcon :platform="option.code" :size="18" />
+                </span>
+                <strong>{{ option.label }}</strong>
+                <span>{{ option.subtitle }}</span>
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -1604,6 +1622,16 @@ async function selectProvider(option: ProviderOption) {
   color: var(--muted);
 }
 
+.provider-modal-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.provider-modal-section {
+  display: grid;
+  gap: 10px;
+}
+
 .provider-modal-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1638,16 +1666,22 @@ async function selectProvider(option: ProviderOption) {
 }
 
 .provider-option-icon {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border-radius: 11px;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 13px;
-  text-transform: lowercase;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.provider-option-icon :deep(svg) {
+  display: block;
+}
+
+.provider-modal-grid.upcoming {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .provider-option strong {

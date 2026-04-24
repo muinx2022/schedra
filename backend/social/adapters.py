@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone as dt_timezone
 from dataclasses import dataclass
 import json
+import os
 import socket
 import time
 from typing import Any
@@ -79,6 +80,21 @@ class ProviderAdapter:
     ) -> dict[str, Any]:
         raise NotImplementedError
 
+    def fetch_community_posts(
+        self,
+        target_account: dict[str, Any],
+        *,
+        limit: int = 25,
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    def fetch_community_post_detail(
+        self,
+        target_account: dict[str, Any],
+        external_object_id: str,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
     def reply_to_comment(
         self,
         target_account: dict[str, Any],
@@ -86,6 +102,14 @@ class ProviderAdapter:
         body_text: str,
     ) -> dict[str, Any]:
         raise NotImplementedError("Comment replies are not supported for this provider.")
+
+    def comment_on_post(
+        self,
+        target_account: dict[str, Any],
+        external_object_id: str,
+        body_text: str,
+    ) -> dict[str, Any]:
+        raise NotImplementedError("Post comments are not supported for this provider.")
 
     def normalize_error(self, error: Exception) -> dict[str, Any]:
         return {"detail": str(error)}
@@ -122,20 +146,16 @@ class MetaOAuthMixin:
 
     REQUIRED_SCOPES = {
         "pages_show_list",
-        "business_management",
-        "read_insights",
+        "pages_manage_posts",
+        "pages_read_engagement",
         "pages_read_user_content",
-        "instagram_basic",
-        "instagram_manage_insights",
-        "instagram_manage_comments",
+        "pages_manage_engagement",
     }
 
     @property
     def scopes(self) -> list[str]:
         raw = self.settings.meta_scopes or (
-            "pages_show_list,business_management,pages_manage_posts,pages_read_engagement,pages_manage_metadata,"
-            "pages_read_user_content,read_insights,instagram_basic,instagram_content_publish,"
-            "instagram_manage_insights,instagram_manage_comments"
+            "pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_manage_engagement"
         )
         result = [item.strip() for item in raw.split(",") if item.strip()]
         for required in self.REQUIRED_SCOPES:
@@ -157,6 +177,39 @@ class MetaOAuthMixin:
             or target_account.get("access_token")
             or ""
         )
+
+    def _fetch_insight_metric_series(
+        self,
+        *,
+        account_id: str,
+        access_token: str,
+        metric_names: list[str],
+        since_date,
+        until_date,
+    ) -> list[dict[str, Any]]:
+        last_error: Exception | None = None
+        for metric_name in metric_names:
+            try:
+                payload = self._request(
+                    f"/{account_id}/insights",
+                    query={
+                        "metric": metric_name,
+                        "period": "day",
+                        "since": since_date.isoformat(),
+                        "until": until_date.isoformat(),
+                        "access_token": access_token,
+                    },
+                )
+                return payload.get("data", []) or []
+            except ValueError as exc:
+                last_error = exc
+                error_text = str(exc)
+                if "valid insights metric" in error_text or "Invalid metric" in error_text:
+                    continue
+                raise
+        if last_error:
+            return []
+        return []
 
     def fetch_daily_insights(self, target_account: dict[str, Any], since_date, until_date) -> list[dict[str, Any]]:
         if not self.is_configured:
@@ -183,30 +236,26 @@ class MetaOAuthMixin:
 
         if target_account.get("account_type") == "instagram_business":
             metrics = [
-                ("impressions", "impressions"),
-                ("reach", "reach"),
-                ("engagement", "total_interactions"),
+                ("impressions", ["views", "impressions"]),
+                ("reach", ["reach"]),
+                ("engagement", ["total_interactions", "engagement"]),
             ]
         else:
             metrics = [
-                ("impressions", "page_impressions"),
-                ("reach", "page_reach"),
-                ("engagement", "page_post_engagements"),
+                ("impressions", ["views", "page_impressions"]),
+                ("reach", ["reach", "page_reach"]),
+                ("engagement", ["content_interactions", "page_post_engagements"]),
             ]
 
         aggregated = {}
-        for normalized_key, metric_name in metrics:
-            payload = self._request(
-                f"/{account_id}/insights",
-                query={
-                    "metric": metric_name,
-                    "period": "day",
-                    "since": since_date.isoformat(),
-                    "until": until_date.isoformat(),
-                    "access_token": access_token,
-                },
+        for normalized_key, metric_names in metrics:
+            data = self._fetch_insight_metric_series(
+                account_id=account_id,
+                access_token=access_token,
+                metric_names=metric_names,
+                since_date=since_date,
+                until_date=until_date,
             )
-            data = payload.get("data", []) or []
             metric_values = (data[0] or {}).get("values", []) if data else []
             for item in metric_values:
                 end_time = item.get("end_time")
@@ -277,8 +326,8 @@ class MetaOAuthMixin:
         while True:
             query = {
                 "fields": (
-                    "id,text,from{id,name},username,timestamp,parent{id},"
-                    "replies{id,text,from{id,name},username,timestamp,parent{id}}"
+                    "id,message,text,from{id,name},username,timestamp,parent{id},"
+                    "replies{id,message,text,from{id,name},username,timestamp,parent{id}}"
                 ),
                 "access_token": access_token,
                 "limit": 100,
@@ -300,8 +349,122 @@ class MetaOAuthMixin:
             if not ((payload.get("paging") or {}).get("next") and after):
                 break
 
-        comments.sort(key=lambda item: item["published_at"])
         return {"comments": comments, "next_cursor": after or ""}
+
+    def fetch_community_posts(
+        self,
+        target_account: dict[str, Any],
+        *,
+        limit: int = 25,
+    ) -> list[dict[str, Any]]:
+        if not self.is_configured:
+            now = timezone.now()
+            return [
+                {
+                    "external_object_id": f"mock-post-{index}",
+                    "title": f"Mock post {index + 1}",
+                    "body_text": f"Demo provider post {index + 1}",
+                    "published_at": now - timedelta(hours=index),
+                    "permalink_url": "",
+                    "preview_image_url": "",
+                    "comment_count": index + 1,
+                }
+                for index in range(min(limit, 3))
+            ]
+
+        account_id = target_account["external_id"]
+        access_token = self._meta_access_token(target_account)
+        if not access_token:
+            raise ValueError("Missing Meta page or account access token for community posts.")
+
+        if target_account.get("account_type") == "instagram_business":
+            payload = self._request(
+                f"/{account_id}/media",
+                query={
+                    "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,comments_count",
+                    "access_token": access_token,
+                    "limit": limit,
+                },
+            )
+            return [self._normalize_instagram_media(item) for item in (payload.get("data") or [])]
+
+        payload = self._request(
+            f"/{account_id}/posts",
+            query={
+                "fields": "id,message,created_time,permalink_url,full_picture,comments.summary(true).limit(0)",
+                "access_token": access_token,
+                "limit": limit,
+            },
+        )
+        return [self._normalize_facebook_post(item) for item in (payload.get("data") or [])]
+
+    def fetch_community_post_detail(
+        self,
+        target_account: dict[str, Any],
+        external_object_id: str,
+    ) -> dict[str, Any]:
+        if not self.is_configured:
+            posts = self.fetch_community_posts(target_account, limit=10)
+            return next((item for item in posts if item["external_object_id"] == external_object_id), posts[0] if posts else {})
+
+        access_token = self._meta_access_token(target_account)
+        if not access_token:
+            raise ValueError("Missing Meta page or account access token for community post detail.")
+
+        if target_account.get("account_type") == "instagram_business":
+            payload = self._request(
+                f"/{external_object_id}",
+                query={
+                    "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,comments_count",
+                    "access_token": access_token,
+                },
+            )
+            return self._normalize_instagram_media(payload)
+
+        payload = self._request(
+            f"/{external_object_id}",
+            query={
+                "fields": "id,message,created_time,permalink_url,full_picture,comments.summary(true).limit(0)",
+                "access_token": access_token,
+            },
+        )
+        return self._normalize_facebook_post(payload)
+
+    def _normalize_facebook_post(self, item: dict[str, Any]) -> dict[str, Any]:
+        published_at = item.get("created_time")
+        if published_at:
+            published_at = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        else:
+            published_at = timezone.now()
+        body_text = item.get("message") or ""
+        comment_count = (((item.get("comments") or {}).get("summary") or {}).get("total_count")) or 0
+        return {
+            "external_object_id": str(item.get("id") or ""),
+            "title": (body_text.strip().splitlines()[0] if body_text.strip() else "Facebook post"),
+            "body_text": body_text,
+            "published_at": published_at,
+            "permalink_url": item.get("permalink_url", ""),
+            "preview_image_url": item.get("full_picture", ""),
+            "comment_count": int(comment_count or 0),
+        }
+
+    def _normalize_instagram_media(self, item: dict[str, Any]) -> dict[str, Any]:
+        published_at = item.get("timestamp")
+        if published_at:
+            published_at = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        else:
+            published_at = timezone.now()
+        body_text = item.get("caption") or ""
+        preview_image_url = item.get("thumbnail_url") or item.get("media_url") or ""
+        return {
+            "external_object_id": str(item.get("id") or ""),
+            "title": (body_text.strip().splitlines()[0] if body_text.strip() else "Instagram post"),
+            "body_text": body_text,
+            "published_at": published_at,
+            "permalink_url": item.get("permalink", ""),
+            "preview_image_url": preview_image_url,
+            "comment_count": int(item.get("comments_count") or 0),
+        }
 
     def _normalize_meta_comment(self, item: dict[str, Any]) -> dict[str, Any]:
         author = item.get("from") or {}
@@ -316,7 +479,7 @@ class MetaOAuthMixin:
             "parent_external_id": str(parent.get("id") or item.get("parent_id") or ""),
             "author_name": author.get("name") or item.get("username") or "Unknown",
             "author_external_id": str(author.get("id") or ""),
-            "body_text": item.get("text", ""),
+            "body_text": item.get("message") or item.get("text") or "",
             "published_at": published_at,
             "metadata": {"username": item.get("username", "")},
         }
@@ -349,6 +512,124 @@ class MetaOAuthMixin:
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             raise ValueError(self._http_error_message(exc)) from exc
+
+    def _request_multipart(
+        self,
+        path: str,
+        *,
+        fields: dict[str, Any] | None = None,
+        files: dict[str, tuple[str, bytes, str]] | None = None,
+        query: dict[str, Any] | None = None,
+        method: str = "POST",
+    ):
+        query = query or {}
+        url = f"{self.base_url}{path}"
+        if query:
+            url = f"{url}?{urlencode(query)}"
+
+        boundary = f"----SchedraBoundary{int(time.time() * 1000)}"
+        payload = self._encode_multipart_payload(boundary, fields or {}, files or {})
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }
+
+        request = Request(url, data=payload, method=method, headers=headers)
+        try:
+            with urlopen(request) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise ValueError(self._http_error_message(exc)) from exc
+
+    def _encode_multipart_payload(
+        self,
+        boundary: str,
+        fields: dict[str, Any],
+        files: dict[str, tuple[str, bytes, str]],
+    ) -> bytes:
+        parts: list[bytes] = []
+        boundary_bytes = boundary.encode("utf-8")
+
+        for name, value in fields.items():
+            parts.extend(
+                [
+                    b"--" + boundary_bytes + b"\r\n",
+                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                    str(value).encode("utf-8"),
+                    b"\r\n",
+                ]
+            )
+
+        for name, (filename, content, content_type) in files.items():
+            parts.extend(
+                [
+                    b"--" + boundary_bytes + b"\r\n",
+                    (
+                        f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+                        f"Content-Type: {content_type}\r\n\r\n"
+                    ).encode("utf-8"),
+                    content,
+                    b"\r\n",
+                ]
+            )
+
+        parts.append(b"--" + boundary_bytes + b"--\r\n")
+        return b"".join(parts)
+
+    def fetch_remote_media_bytes(self, file_url: str) -> tuple[bytes, str]:
+        try:
+            with urlopen(file_url) as response:
+                content = response.read()
+                content_type = (response.headers.get("Content-Type") or "application/octet-stream").split(";")[0].strip()
+        except (HTTPError, URLError, OSError) as exc:
+            raise ValueError(f"Could not fetch media for provider upload. {exc}") from exc
+
+        if not content:
+            raise ValueError("Could not fetch media for provider upload. Remote file is empty.")
+
+        return content, content_type or "application/octet-stream"
+
+    def _load_local_media_asset_bytes(self, media_asset_id: str) -> tuple[bytes, str] | None:
+        from media_library.models import MediaAsset
+
+        asset = MediaAsset.objects.filter(pk=media_asset_id).first()
+        if not asset or asset.storage_backend != "local" or not asset.file:
+            return None
+
+        try:
+            with asset.file.open("rb") as fh:
+                content = fh.read()
+        except OSError as exc:
+            raise ValueError(f"Could not read local media for provider upload. {exc}") from exc
+
+        if not content:
+            raise ValueError("Could not read local media for provider upload. Local file is empty.")
+
+        content_type = (asset.content_type or "application/octet-stream").split(";")[0].strip()
+        return content, content_type or "application/octet-stream"
+
+    def fetch_media_bytes(self, media_item: dict[str, Any]) -> tuple[bytes, str]:
+        file_url = (media_item.get("file_url") or "").strip()
+        remote_error: ValueError | None = None
+        if file_url:
+            try:
+                return self.fetch_remote_media_bytes(file_url)
+            except ValueError as exc:
+                remote_error = exc
+
+        media_asset_id = str(media_item.get("id") or "").strip()
+        if media_asset_id:
+            local_result = self._load_local_media_asset_bytes(media_asset_id)
+            if local_result is not None:
+                return local_result
+
+        if remote_error is not None:
+            raise remote_error
+
+        raise ValueError("Could not fetch media for provider upload. Missing media URL and local asset.")
+
+    def should_retry_media_with_direct_upload(self, exc: Exception) -> bool:
+        return False
 
     def get_authorize_url(self, redirect_uri: str, state: str) -> str:
         if not self.is_configured:
@@ -383,7 +664,7 @@ class MetaOAuthMixin:
                     return f"{message}{suffix}"
         return f"HTTP Error {exc.code}: {exc.reason}"
 
-    def exchange_code(self, code: str, redirect_uri: str) -> OAuthExchangeResult:
+    def exchange_code(self, code: str, redirect_uri: str, context: dict[str, Any] | None = None) -> OAuthExchangeResult:
         if not self.is_configured:
             return OAuthExchangeResult(
                 external_user_id=f"meta-user-{code}",
@@ -630,28 +911,20 @@ class FacebookAdapter(MetaOAuthMixin, ProviderAdapter):
         media_items = payload.get("media_items") or []
 
         if len(media_items) == 1:
-            # Single image — use /photos endpoint
-            response = self._request(
-                f"/{page_id}/photos",
-                method="POST",
-                data={
-                    "url": media_items[0]["file_url"],
-                    "message": caption,
-                    "access_token": access_token,
-                },
+            response = self._publish_facebook_photo(
+                page_id,
+                access_token,
+                media_items[0],
+                message=caption,
             )
         elif len(media_items) > 1:
-            # Multiple images — upload each as unpublished, then attach to feed post
             media_ids = []
             for item in media_items:
-                photo = self._request(
-                    f"/{page_id}/photos",
-                    method="POST",
-                    data={
-                        "url": item["file_url"],
-                        "published": "false",
-                        "access_token": access_token,
-                    },
+                photo = self._publish_facebook_photo(
+                    page_id,
+                    access_token,
+                    item,
+                    published="false",
                 )
                 media_ids.append({"media_fbid": photo["id"]})
 
@@ -684,6 +957,52 @@ class FacebookAdapter(MetaOAuthMixin, ProviderAdapter):
             "raw": response,
         }
 
+    def _publish_facebook_photo(
+        self,
+        page_id: str,
+        access_token: str,
+        media_item: dict[str, Any],
+        *,
+        message: str | None = None,
+        published: str | None = None,
+    ) -> dict[str, Any]:
+        file_url = media_item["file_url"]
+        payload: dict[str, Any] = {
+            "url": file_url,
+            "access_token": access_token,
+        }
+        if message is not None:
+            payload["message"] = message
+        if published is not None:
+            payload["published"] = published
+
+        try:
+            return self._request(
+                f"/{page_id}/photos",
+                method="POST",
+                data=payload,
+            )
+        except ValueError as exc:
+            if not self.should_retry_media_with_direct_upload(exc):
+                raise
+
+        content, content_type = self.fetch_media_bytes(media_item)
+        multipart_fields: dict[str, Any] = {"access_token": access_token}
+        if message is not None:
+            multipart_fields["message"] = message
+        if published is not None:
+            multipart_fields["published"] = published
+
+        return self._request_multipart(
+            f"/{page_id}/photos",
+            fields=multipart_fields,
+            files={"source": ("upload", content, content_type)},
+        )
+
+    def should_retry_media_with_direct_upload(self, exc: Exception) -> bool:
+        message = str(exc)
+        return "Missing or invalid image file" in message or "OAuthException 324" in message
+
     def reply_to_comment(
         self,
         target_account: dict[str, Any],
@@ -708,6 +1027,43 @@ class FacebookAdapter(MetaOAuthMixin, ProviderAdapter):
 
         response = self._request(
             f"/{parent_external_id}/comments",
+            method="POST",
+            data={
+                "message": message_text,
+                "access_token": access_token,
+            },
+        )
+        return {
+            "external_id": str(response.get("id") or ""),
+            "body_text": message_text,
+            "published_at": timezone.now(),
+            "metadata": {"raw": response},
+        }
+
+    def comment_on_post(
+        self,
+        target_account: dict[str, Any],
+        external_object_id: str,
+        body_text: str,
+    ) -> dict[str, Any]:
+        message_text = body_text.strip()
+        if not message_text:
+            raise ValueError("Comment text cannot be empty.")
+
+        if not self.is_configured:
+            return {
+                "external_id": f"{external_object_id}-comment-{int(timezone.now().timestamp())}",
+                "body_text": message_text,
+                "published_at": timezone.now(),
+                "metadata": {"mock": True},
+            }
+
+        access_token = self._meta_access_token(target_account)
+        if not access_token:
+            raise ValueError("Missing Meta page or account access token for post comments.")
+
+        response = self._request(
+            f"/{external_object_id}/comments",
             method="POST",
             data={
                 "message": message_text,
@@ -922,7 +1278,7 @@ class InstagramAdapter(ProviderAdapter):
         }
         return f"{self.auth_url}?{urlencode(params)}"
 
-    def exchange_code(self, code: str, redirect_uri: str) -> OAuthExchangeResult:
+    def exchange_code(self, code: str, redirect_uri: str, context: dict[str, Any] | None = None) -> OAuthExchangeResult:
         if not self.is_direct_configured:
             raise ValueError(
                 "Instagram Login is not configured. Set instagram_app_id and instagram_app_secret in Back Office first."
@@ -1181,7 +1537,7 @@ class LinkedInAdapter(ProviderAdapter):
 
     @property
     def scopes(self) -> list[str]:
-        raw = self.settings.linkedin_scopes or "openid,profile,email,w_member_social"
+        raw = self.settings.linkedin_scopes or "openid,profile,email,w_member_social,w_organization_social,r_organization_admin"
         return [s.strip() for s in raw.split(",") if s.strip()]
 
     @property
@@ -1194,9 +1550,12 @@ class LinkedInAdapter(ProviderAdapter):
         access_token: str,
         method: str = "GET",
         data: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
         headers_extra: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         url = f"{self.API_BASE}{path}"
+        if query:
+            url = f"{url}?{urlencode(query)}"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
@@ -1232,7 +1591,7 @@ class LinkedInAdapter(ProviderAdapter):
         }
         return f"{self.AUTH_URL}?{urlencode(params)}"
 
-    def exchange_code(self, code: str, redirect_uri: str) -> OAuthExchangeResult:
+    def exchange_code(self, code: str, redirect_uri: str, context: dict[str, Any] | None = None) -> OAuthExchangeResult:
         if not self.is_configured:
             raise ValueError("LinkedIn is not configured.")
         payload = urlencode({
@@ -1280,7 +1639,7 @@ class LinkedInAdapter(ProviderAdapter):
         token = decrypt_value(access_token)
         profile = self._api("/userinfo", token)
         user_id = str(profile.get("sub") or profile.get("id") or "")
-        return [{
+        accounts = [{
             "external_id": user_id,
             "display_name": profile.get("name") or profile.get("email") or "LinkedIn Account",
             "account_type": "personal",
@@ -1291,6 +1650,54 @@ class LinkedInAdapter(ProviderAdapter):
                 "picture": profile.get("picture", ""),
             },
         }]
+        try:
+            accounts.extend(self._list_organization_accounts(token))
+        except Exception:
+            # Keep personal profile usable even when organization scopes are unavailable.
+            pass
+        return accounts
+
+    def _list_organization_accounts(self, access_token: str) -> list[dict[str, Any]]:
+        acl_payload = self._api(
+            "/organizationAcls",
+            access_token,
+            query={"q": "roleAssignee", "state": "APPROVED"},
+        )
+        allowed_roles = {"ADMINISTRATOR", "CONTENT_ADMIN", "DIRECT_SPONSORED_CONTENT_POSTER"}
+        organization_ids: list[str] = []
+        for item in acl_payload.get("elements", []) or []:
+            if item.get("role") not in allowed_roles:
+                continue
+            organization_urn = str(item.get("organization") or "")
+            if not organization_urn.startswith("urn:li:organization:"):
+                continue
+            organization_id = organization_urn.rsplit(":", 1)[-1]
+            if organization_id and organization_id not in organization_ids:
+                organization_ids.append(organization_id)
+
+        accounts: list[dict[str, Any]] = []
+        for organization_id in organization_ids:
+            profile = self._api(f"/organizations/{organization_id}", access_token)
+            display_name = (
+                profile.get("localizedName")
+                or ((profile.get("name") or {}).get("localized") or {}).get("en_US")
+                or f"LinkedIn Page {organization_id}"
+            )
+            accounts.append(
+                {
+                    "external_id": organization_id,
+                    "display_name": display_name,
+                    "account_type": "organization",
+                    "timezone": "Asia/Saigon",
+                    "metadata": {
+                        "channel_code": "linkedin",
+                        "access_token": access_token,
+                        "organization_urn": f"urn:li:organization:{organization_id}",
+                        "vanity_name": profile.get("vanityName", ""),
+                    },
+                }
+            )
+        return accounts
 
     def validate_credentials(self, access_token: str) -> dict[str, Any]:
         try:
@@ -1302,13 +1709,16 @@ class LinkedInAdapter(ProviderAdapter):
 
     def publish_post(self, target_account: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
         access_token = decrypt_value(target_account.get("access_token", ""))
-        author_urn = f"urn:li:person:{target_account['external_id']}"
+        if target_account.get("account_type") == "organization":
+            author_urn = target_account.get("organization_urn") or f"urn:li:organization:{target_account['external_id']}"
+        else:
+            author_urn = f"urn:li:person:{target_account['external_id']}"
         caption = payload.get("caption_text", "")
         media_items = payload.get("media_items") or []
 
         if media_items:
             # Upload each image then attach
-            image_urns = [self._upload_image(access_token, item["file_url"]) for item in media_items]
+            image_urns = [self._upload_image(access_token, item, author_urn) for item in media_items]
             content: dict[str, Any] = {
                 "media": [
                     {"status": "READY", "media": urn, "title": {"text": ""}}
@@ -1337,12 +1747,12 @@ class LinkedInAdapter(ProviderAdapter):
             "raw": result,
         }
 
-    def _upload_image(self, access_token: str, file_url: str) -> str:
+    def _upload_image(self, access_token: str, media_item: dict[str, Any], owner_urn: str) -> str:
         # Step 1: Register upload
         register_body = {
             "registerUploadRequest": {
                 "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
-                "owner": "urn:li:person:me",
+                "owner": owner_urn,
                 "serviceRelationships": [{
                     "relationshipType": "OWNER",
                     "identifier": "urn:li:userGeneratedContent",
@@ -1354,8 +1764,7 @@ class LinkedInAdapter(ProviderAdapter):
         asset_urn = reg["value"]["asset"]
 
         # Step 2: Fetch image bytes and PUT to upload URL
-        with urlopen(file_url) as img_response:
-            image_data = img_response.read()
+        image_data, _ = self.fetch_media_bytes(media_item)
 
         upload_req = Request(upload_url, data=image_data, method="PUT", headers={
             "Authorization": f"Bearer {access_token}",
@@ -2001,8 +2410,8 @@ class YouTubeAdapter(ProviderAdapter):
 class PinterestAdapter(ProviderAdapter):
     provider_code = "pinterest"
     AUTH_URL = "https://www.pinterest.com/oauth/"
-    TOKEN_URL = "https://api.pinterest.com/v5/oauth/token"
-    API_BASE = "https://api.pinterest.com/v5"
+    DEFAULT_TOKEN_URL = "https://api.pinterest.com/v5/oauth/token"
+    DEFAULT_API_BASE = "https://api.pinterest.com/v5"
 
     @property
     def settings(self) -> SocialProviderSettings:
@@ -2019,8 +2428,16 @@ class PinterestAdapter(ProviderAdapter):
         return ""
 
     @property
+    def token_url(self) -> str:
+        return os.getenv("PINTEREST_TOKEN_URL", self.DEFAULT_TOKEN_URL).strip() or self.DEFAULT_TOKEN_URL
+
+    @property
+    def api_base(self) -> str:
+        return os.getenv("PINTEREST_API_BASE_URL", self.DEFAULT_API_BASE).strip().rstrip("/") or self.DEFAULT_API_BASE
+
+    @property
     def scopes(self) -> list[str]:
-        raw = self.settings.pinterest_scopes or "boards:read,pins:read,pins:write"
+        raw = self.settings.pinterest_scopes or "boards:read,boards:write,pins:read,pins:write"
         return [s.strip() for s in raw.split(",") if s.strip()]
 
     @property
@@ -2054,7 +2471,7 @@ class PinterestAdapter(ProviderAdapter):
         import base64
         credentials = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
         request = Request(
-            self.TOKEN_URL,
+            self.token_url,
             data=urlencode(data).encode("utf-8"),
             method="POST",
             headers={
@@ -2088,7 +2505,7 @@ class PinterestAdapter(ProviderAdapter):
         )
 
     def _api(self, path: str, access_token: str, method: str = "GET", data: dict[str, Any] | None = None) -> dict[str, Any]:
-        url = f"{self.API_BASE}{path}"
+        url = f"{self.api_base}{path}"
         body = json.dumps(data).encode("utf-8") if data else None
         headers: dict[str, str] = {
             "Authorization": f"Bearer {access_token}",
@@ -2114,7 +2531,7 @@ class PinterestAdapter(ProviderAdapter):
 
     def list_accounts(self, access_token_enc: str) -> list[dict[str, Any]]:
         token = decrypt_value(access_token_enc)
-        url = f"{self.API_BASE}/boards?page_size=50"
+        url = f"{self.api_base}/boards?page_size=50"
         request = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
         try:
             with urlopen(request) as response:

@@ -1,6 +1,7 @@
 ﻿from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.utils import timezone
 from unittest.mock import patch
 from rest_framework.test import APITestCase
@@ -407,7 +408,11 @@ class PublishingFlowTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("already exists", response.data["detail"])
 
+    @override_settings(APP_PUBLIC_BASE_URL="")
     def test_publish_now_fails_for_local_media_without_public_base_url(self):
+        media_settings = MediaUploadSettings.load()
+        media_settings.local_public_base_url = ""
+        media_settings.save()
         local_asset = MediaAsset.objects.create(
             workspace=self.workspace,
             uploaded_by=self.user,

@@ -58,14 +58,18 @@ class SocialProviderSettings(models.Model):
     meta_scopes = models.CharField(
         max_length=500,
         blank=True,
-        help_text="Comma-separated scopes used for Meta OAuth.",
+        help_text="Comma-separated scopes for Facebook Page OAuth. Keep Instagram scopes in the dedicated Instagram field.",
     )
     meta_graph_base_url = models.URLField(blank=True)
     meta_auth_base_url = models.URLField(blank=True)
 
     instagram_app_id = models.CharField(max_length=255, blank=True)
     instagram_app_secret_enc = models.TextField(blank=True)
-    instagram_scopes = models.CharField(max_length=500, blank=True)
+    instagram_scopes = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Comma-separated scopes for the standalone Instagram OAuth flow.",
+    )
     instagram_graph_base_url = models.URLField(blank=True)
     instagram_auth_base_url = models.URLField(blank=True)
     instagram_token_base_url = models.URLField(blank=True)

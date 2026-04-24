@@ -88,6 +88,11 @@ class SocialAccountSerializer(serializers.ModelSerializer):
                 return "Instagram"
             if obj.account_type == "page":
                 return "Facebook"
+        if obj.provider.code == "linkedin":
+            if obj.account_type == "organization":
+                return "LinkedIn Page"
+            if obj.account_type == "personal":
+                return "LinkedIn Profile"
         return obj.provider.name
 
     def get_interaction_capabilities(self, obj):
@@ -103,8 +108,10 @@ class OAuthStartSerializer(serializers.Serializer):
 
 class OAuthCallbackSerializer(serializers.Serializer):
     code = serializers.CharField()
+    state = serializers.CharField()
     redirect_uri = serializers.URLField()
 
 
 class ConnectAccountSerializer(serializers.Serializer):
     external_id = serializers.CharField()
+    account_type = serializers.CharField(required=False, allow_blank=True)

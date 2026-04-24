@@ -185,8 +185,8 @@ const quickLinks = [
     to: "/app/analytics",
   },
   {
-    title: "Review inbox",
-    text: "Triage comments from published content without leaving the workspace.",
+    title: "Review interactions",
+    text: "Triage comment interactions from published content without leaving the workspace.",
     to: "/app/inbox",
   },
   {

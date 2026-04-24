@@ -9,6 +9,7 @@ const { locale } = useI18n()
 const { preference: themePreference, options: themeOptions, setPreference } = useThemePreference()
 const channelsDrawerOpen = ref(false)
 const languageMenuOpen = ref(false)
+const expandedChannelId = ref("")
 
 const localePrefixRE = /^\/(en|vi)(?=\/|$)/
 const pathNoLocale = computed(() => {
@@ -33,7 +34,6 @@ const navItems = computed(() => [
   { to: "/app/posts", labelKey: "nav.publish", icon: "publish", active: isPostsRoute.value && !hasActiveChannelFilter.value },
   { to: "/app/calendar", labelKey: "nav.calendar", icon: "calendar", active: isCalendarRoute.value },
   { to: "/app/analytics", labelKey: "nav.analytics", icon: "analytics", active: isAnalyticsRoute.value },
-  { to: "/app/inbox", labelKey: "nav.inbox", icon: "inbox", active: isInboxRoute.value },
   { to: "/app/media", labelKey: "nav.media", icon: "media", active: isMediaRoute.value },
   { to: "/app/settings", labelKey: "nav.settings", icon: "settings", active: isSettingsRoute.value },
 ])
@@ -63,6 +63,21 @@ function openAppNavItem(to: string) {
   router.push(localePath(to))
 }
 
+function toggleChannelGroup(accountId: string) {
+  expandedChannelId.value = expandedChannelId.value === accountId ? "" : accountId
+}
+
+function isChannelViewActive(accountId: string, view: "publish" | "community") {
+  if (String(route.query.account || "") !== String(accountId)) return false
+  if (view === "publish") return pathNoLocale.value === "/app/posts"
+  return pathNoLocale.value === "/app/inbox"
+}
+
+function openChannelView(accountId: string, view: "publish" | "community") {
+  const path = view === "publish" ? "/app/posts" : "/app/inbox"
+  router.push({ path: localePath(path), query: { account: String(accountId) } })
+}
+
 function accountPlatformClass(account: any): string {
   const providerCode = String(account?.provider_code || account?.channel_code || "").toLowerCase()
   if (["facebook", "instagram", "linkedin", "tiktok", "youtube", "pinterest"].includes(providerCode)) {
@@ -76,9 +91,21 @@ function accountPlatformClass(account: any): string {
   return "facebook"
 }
 
+function accountDescriptor(account: any): string {
+  if (account?.account_type === "instagram_business") return "Instagram Business"
+  if (account?.account_type === "tiktok_creator") return "TikTok Creator"
+  if (account?.account_type === "youtube_channel") return "YouTube Channel"
+  if (account?.account_type === "personal") return "LinkedIn Profile"
+  if (account?.account_type === "organization") return "LinkedIn Page"
+  if (account?.account_type === "pinterest_board") return "Pinterest Board"
+  return "Facebook Page"
+}
+
 watch(() => route.fullPath, () => {
   channelsDrawerOpen.value = false
   languageMenuOpen.value = false
+  const accountId = String(route.query.account || "")
+  expandedChannelId.value = accountId || expandedChannelId.value
 })
 </script>
 
@@ -119,18 +146,42 @@ watch(() => route.fullPath, () => {
         <div v-if="!accounts?.length" class="sidebar-channels-empty">
           <NuxtLink :to="localePath('/app/settings')" class="sidebar-connect-btn">+ {{ t("common.connect_channel") }}</NuxtLink>
         </div>
-        <button
+        <div
           v-for="acc in accounts"
           :key="acc.id"
-          class="sidebar-channel-item"
-          :class="{ active: route.query.account == acc.id }"
-          @click="router.push({ path: localePath('/app/posts'), query: { account: String(acc.id) } })"
+          class="sidebar-channel-group"
+          :class="{ active: route.query.account == acc.id, expanded: expandedChannelId === String(acc.id) }"
         >
-          <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
-            <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
+          <button class="sidebar-channel-item" @click="toggleChannelGroup(String(acc.id))">
+            <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
+              <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
+            </div>
+            <span class="sidebar-channel-copy">
+              <span class="sidebar-channel-name">{{ acc.display_name }}</span>
+              <span class="sidebar-channel-meta">{{ accountDescriptor(acc) }}</span>
+            </span>
+            <span class="sidebar-channel-caret">{{ expandedChannelId === String(acc.id) ? "−" : "+" }}</span>
+          </button>
+
+          <div v-if="expandedChannelId === String(acc.id)" class="sidebar-channel-links">
+            <button
+              class="sidebar-channel-link"
+              :class="{ active: isChannelViewActive(String(acc.id), 'publish') }"
+              @click="openChannelView(String(acc.id), 'publish')"
+            >
+              <AppNavIcon name="publish" :size="14" />
+              <span>{{ t("nav.publish") }}</span>
+            </button>
+            <button
+              class="sidebar-channel-link"
+              :class="{ active: isChannelViewActive(String(acc.id), 'community') }"
+              @click="openChannelView(String(acc.id), 'community')"
+            >
+              <AppNavIcon name="inbox" :size="14" />
+              <span>Community</span>
+            </button>
           </div>
-          <span class="sidebar-channel-name">{{ acc.display_name }}</span>
-        </button>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -202,18 +253,42 @@ watch(() => route.fullPath, () => {
             <div v-if="!accounts?.length" class="sidebar-channels-empty">
               <NuxtLink :to="localePath('/app/settings')" class="sidebar-connect-btn">+ {{ t("common.connect_channel") }}</NuxtLink>
             </div>
-            <button
+            <div
               v-for="acc in accounts"
               :key="acc.id"
-              class="sidebar-channel-item"
-              :class="{ active: route.query.account == acc.id }"
-              @click="router.push({ path: localePath('/app/posts'), query: { account: String(acc.id) } })"
+              class="sidebar-channel-group"
+              :class="{ active: route.query.account == acc.id, expanded: expandedChannelId === String(acc.id) }"
             >
-              <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
-                <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
+              <button class="sidebar-channel-item" @click="toggleChannelGroup(String(acc.id))">
+                <div class="sidebar-channel-provider" :class="`is-${accountPlatformClass(acc)}`">
+                  <PlatformIcon :platform="accountPlatformClass(acc)" :size="17" />
+                </div>
+                <span class="sidebar-channel-copy">
+                  <span class="sidebar-channel-name">{{ acc.display_name }}</span>
+                  <span class="sidebar-channel-meta">{{ accountDescriptor(acc) }}</span>
+                </span>
+                <span class="sidebar-channel-caret">{{ expandedChannelId === String(acc.id) ? "−" : "+" }}</span>
+              </button>
+
+              <div v-if="expandedChannelId === String(acc.id)" class="sidebar-channel-links">
+                <button
+                  class="sidebar-channel-link"
+                  :class="{ active: isChannelViewActive(String(acc.id), 'publish') }"
+                  @click="openChannelView(String(acc.id), 'publish')"
+                >
+                  <AppNavIcon name="publish" :size="14" />
+                  <span>{{ t("nav.publish") }}</span>
+                </button>
+                <button
+                  class="sidebar-channel-link"
+                  :class="{ active: isChannelViewActive(String(acc.id), 'community') }"
+                  @click="openChannelView(String(acc.id), 'community')"
+                >
+                  <AppNavIcon name="inbox" :size="14" />
+                  <span>Community</span>
+                </button>
               </div>
-              <span class="sidebar-channel-name">{{ acc.display_name }}</span>
-            </button>
+            </div>
           </aside>
         </div>
       </Teleport>
@@ -386,6 +461,57 @@ watch(() => route.fullPath, () => {
   border-color: var(--line-soft);
 }
 
+.sidebar-channel-group {
+  display: grid;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 14px;
+}
+
+.sidebar-channel-group.active {
+  background: rgba(127, 162, 147, 0.08);
+}
+
+.sidebar-channel-group.expanded {
+  background: rgba(127, 162, 147, 0.08);
+}
+
+.sidebar-channel-links {
+  display: grid;
+  gap: 4px;
+  padding-left: 40px;
+}
+
+.sidebar-channel-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.sidebar-channel-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-channel-link:hover,
+.sidebar-channel-link.active {
+  color: var(--ink);
+  background: var(--surface-muted);
+  border-color: var(--line-soft);
+}
+
 .sidebar-channel-provider {
   flex-shrink: 0;
   width: 30px;
@@ -420,13 +546,24 @@ watch(() => route.fullPath, () => {
   background: #e60023;
 }
 
-.sidebar-channel-name {
+.sidebar-channel-copy {
   flex: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.sidebar-channel-name {
   overflow: hidden;
   color: var(--ink);
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-channel-meta {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .theme-link {

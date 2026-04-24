@@ -161,7 +161,7 @@ class SocialProviderSettingsForm(forms.ModelForm):
             "meta_scopes": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "pages_show_list,business_management,pages_manage_posts,pages_read_engagement,pages_manage_metadata,pages_read_user_content,read_insights,instagram_basic,instagram_content_publish,instagram_manage_insights,instagram_manage_comments",
+                    "placeholder": "pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_manage_engagement",
                 }
             ),
             "meta_graph_base_url": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://graph.facebook.com/v23.0"}),
@@ -170,7 +170,7 @@ class SocialProviderSettingsForm(forms.ModelForm):
             "instagram_scopes": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "instagram_business_basic,instagram_business_content_publish",
+                    "placeholder": "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_insights",
                 }
             ),
             "instagram_graph_base_url": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://graph.instagram.com"}),
@@ -181,7 +181,7 @@ class SocialProviderSettingsForm(forms.ModelForm):
             "tiktok_client_key": forms.TextInput(attrs={"class": "form-control"}),
             "tiktok_scopes": forms.TextInput(attrs={"class": "form-control", "placeholder": "user.info.basic,video.publish"}),
             "linkedin_client_id": forms.TextInput(attrs={"class": "form-control"}),
-            "linkedin_scopes": forms.TextInput(attrs={"class": "form-control", "placeholder": "openid,profile,email,w_member_social"}),
+            "linkedin_scopes": forms.TextInput(attrs={"class": "form-control", "placeholder": "openid,profile,email,w_member_social,w_organization_social,r_organization_admin"}),
             "youtube_client_id": forms.TextInput(attrs={"class": "form-control"}),
             "youtube_scopes": forms.TextInput(
                 attrs={
@@ -190,15 +190,18 @@ class SocialProviderSettingsForm(forms.ModelForm):
                 }
             ),
             "pinterest_app_id": forms.TextInput(attrs={"class": "form-control"}),
-            "pinterest_scopes": forms.TextInput(attrs={"class": "form-control", "placeholder": "boards:read,pins:read,pins:write"}),
+            "pinterest_scopes": forms.TextInput(attrs={"class": "form-control", "placeholder": "boards:read,boards:write,pins:read,pins:write"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["meta_scopes"].help_text = (
+            "Facebook Page scopes only. Do not include Instagram scopes here."
+        )
+        self.fields["instagram_scopes"].help_text = (
+            "Scopes for the standalone Instagram OAuth flow."
+        )
         if self.instance and self.instance.pk:
-            self.fields["meta_scopes"].help_text = (
-                "Include publishing, insights, and comments scopes for Meta Page and Instagram Business sync."
-            )
             if self.instance.meta_app_secret_enc:
                 self.fields["meta_app_secret"].help_text = (
                     "Secret is set. Leave blank to keep it, or enter a new value to replace."

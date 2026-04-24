@@ -1,32 +1,18 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "auth" })
+
 const localePath = useLocalePath()
 const intlLocale = useIntlLocale()
-const { t } = useI18n()
 
 type InteractionCapabilities = {
   inbox_comments: boolean
   reply_comments: boolean
 }
 
-type ThreadListItem = {
-  id: string
-  account_id: string
-  account_name: string
-  platform: string
-  triage_status: string
-  message_count: number
-  last_message_at: string | null
-  external_object_id: string
-  related_post_id: string | null
-  interaction_capabilities: InteractionCapabilities
-}
-
-type ThreadMessage = {
+type CommunityMessage = {
   id: string
   external_id: string
   parent_external_id: string
-  parent_message: string | null
   author_name: string
   author_external_id: string
   body_text: string
@@ -35,18 +21,23 @@ type ThreadMessage = {
   metadata: Record<string, any>
 }
 
-type ThreadDetail = {
-  id: string
+type CommunityItemApi = {
+  external_object_id: string
+  thread_id: string | null
+  related_post_id: string | null
   account_id: string
   account_name: string
   platform: string
+  title: string
+  body_text: string
+  snippet: string
+  published_at: string | null
+  last_activity_at: string | null
+  permalink_url: string
+  preview_image_url: string
+  comment_count: number
   triage_status: string
-  last_message_at: string | null
-  last_synced_at: string | null
-  external_object_id: string
-  related_post_id: string | null
   interaction_capabilities: InteractionCapabilities
-  messages: ThreadMessage[]
 }
 
 type AccountOption = {
@@ -57,11 +48,33 @@ type AccountOption = {
   interaction_capabilities?: InteractionCapabilities
 }
 
+type CommunityItem = {
+  externalObjectId: string
+  threadId: string | null
+  relatedPostId: string | null
+  accountId: string
+  accountName: string
+  platform: string
+  title: string
+  bodyText: string
+  snippet: string
+  publishedAt: string | null
+  commentCount: number
+  permalinkUrl: string
+  previewImageUrl: string
+  lastActivityAt: string | null
+  triageStatus: string
+  interactionCapabilities: InteractionCapabilities
+}
+
+type CommunityDetail = CommunityItem & {
+  messages: CommunityMessage[]
+}
+
 const route = useRoute()
 const router = useRouter()
 const sidebarAccounts = useNuxtData<AccountOption[]>("sidebar-accounts")
 
-const statusOptions = ["all", "new", "reviewing", "resolved", "ignored"] as const
 const syncPending = ref(false)
 const syncMessage = ref("")
 const triagePending = ref<string | null>(null)
@@ -70,25 +83,13 @@ const replyError = ref("")
 const replyBody = ref("")
 const replyTargetId = ref("")
 
-const selectedStatus = computed(() => {
-  const value = route.query.status
-  return typeof value === "string" && statusOptions.includes(value as typeof statusOptions[number])
-    ? value
-    : "all"
-})
-
-const selectedPlatform = computed(() => {
-  const value = route.query.platform
-  return typeof value === "string" ? value : "all"
-})
-
 const selectedAccountId = computed(() => {
   const value = route.query.account
   return typeof value === "string" ? value : ""
 })
 
-const selectedThreadId = computed(() => {
-  const value = route.query.thread
+const selectedPostId = computed(() => {
+  const value = route.query.post
   return typeof value === "string" ? value : ""
 })
 
@@ -96,72 +97,66 @@ const supportedSidebarAccounts = computed(() =>
   (sidebarAccounts.data.value || []).filter((item) => item.interaction_capabilities?.inbox_comments)
 )
 
-const accountOptions = computed(() =>
-  supportedSidebarAccounts.value.map((item) => ({
-    id: item.id,
-    label: item.display_name,
-    platform: platformName(item.channel_code || item.provider_code),
-  }))
-)
-
 const hasInteractiveAccounts = computed(() => supportedSidebarAccounts.value.length > 0)
 
-const threadListPath = computed(() => {
-  const params = new URLSearchParams()
-  if (selectedStatus.value !== "all") params.set("status", selectedStatus.value)
-  if (selectedPlatform.value !== "all") params.set("platform", selectedPlatform.value)
-  if (selectedAccountId.value) params.set("account", selectedAccountId.value)
-  const query = params.toString()
-  return query ? `/inbox/threads/?${query}` : "/inbox/threads/"
-})
+const selectedAccount = computed(() =>
+  supportedSidebarAccounts.value.find((item) => item.id === selectedAccountId.value) || null
+)
 
-const { data: threads, pending, error, refresh: refreshThreads } = useAsyncData(
-  "inbox-threads",
-  () => apiFetch<ThreadListItem[]>(threadListPath.value),
+const communityPostsPath = computed(() =>
+  selectedAccountId.value ? `/inbox/community/${selectedAccountId.value}/posts/` : ""
+)
+
+const { data: communityItems, pending: communityPostsPending, error: communityPostsError, refresh: refreshCommunityPosts } = useAsyncData(
+  "community-posts",
+  () =>
+    communityPostsPath.value
+      ? apiFetch<CommunityItemApi[]>(communityPostsPath.value).then((items) => items.map(normalizeCommunityItem))
+      : Promise.resolve([]),
   {
     default: () => [],
-    watch: [threadListPath],
+    watch: [communityPostsPath],
     server: false,
   }
 )
 
-const detailPath = computed(() => selectedThreadId.value ? `/inbox/threads/${selectedThreadId.value}/` : "")
-
-const { data: threadDetail, refresh: refreshThreadDetail } = useAsyncData(
-  "inbox-thread-detail",
-  () => selectedThreadId.value ? apiFetch<ThreadDetail>(detailPath.value) : Promise.resolve(null),
-  {
-    default: () => null,
-    watch: [detailPath],
-    server: false,
-  }
-)
-
-const platformOptions = computed(() => {
-  const set = new Set<string>()
-  for (const item of supportedSidebarAccounts.value) {
-    set.add(item.channel_code || item.provider_code)
-  }
-  for (const item of threads.value) {
-    set.add(item.platform)
-  }
-  return ["all", ...[...set].filter(Boolean)]
+const selectedCommunityItem = computed(() => {
+  if (!communityItems.value.length) return null
+  return communityItems.value.find((item) => item.externalObjectId === selectedPostId.value) || communityItems.value[0]
 })
 
+const communityDetailPath = computed(() => {
+  if (!selectedAccountId.value || !selectedCommunityItem.value?.externalObjectId) return ""
+  return `/inbox/community/${selectedAccountId.value}/posts/${encodeURIComponent(selectedCommunityItem.value.externalObjectId)}/`
+})
+
+const { data: communityDetail, pending: communityDetailPending, error: communityDetailError, refresh: refreshCommunityDetail } = useAsyncData(
+  "community-post-detail",
+  () =>
+    communityDetailPath.value
+      ? apiFetch<CommunityItemApi & { messages: CommunityMessage[] }>(communityDetailPath.value).then(normalizeCommunityDetail)
+      : Promise.resolve(null),
+  {
+    default: () => null,
+    watch: [communityDetailPath],
+    server: false,
+  }
+)
+
 const detailMessages = computed(() => {
-  const messages = threadDetail.value?.messages || []
+  const messages = communityDetail.value?.messages || []
   const byId = new Map(messages.map((item) => [item.id, item]))
   const externalToId = new Map(messages.map((item) => [item.external_id, item.id]))
   return messages.map((message) => {
     let depth = 0
-    let currentParentId = message.parent_message || externalToId.get(message.parent_external_id) || null
+    let currentParentId = externalToId.get(message.parent_external_id) || null
     const visited = new Set<string>()
     while (currentParentId && !visited.has(currentParentId) && depth < 4) {
       visited.add(currentParentId)
       const parent = byId.get(currentParentId)
       if (!parent) break
       depth += 1
-      currentParentId = parent.parent_message || externalToId.get(parent.parent_external_id) || null
+      currentParentId = externalToId.get(parent.parent_external_id) || null
     }
     return { ...message, depth }
   })
@@ -171,32 +166,21 @@ const selectedReplyTarget = computed(() =>
   detailMessages.value.find((message) => message.id === replyTargetId.value) || null
 )
 
-const canReplyToThread = computed(() => !!threadDetail.value?.interaction_capabilities?.reply_comments)
+const canCommentOnPost = computed(() => !!selectedCommunityItem.value?.externalObjectId)
 
-const queueSummary = computed(() => {
-  const items = threads.value
-  return {
-    active: items.length,
-    newCount: items.filter((item) => item.triage_status === "new").length,
-    reviewingCount: items.filter((item) => item.triage_status === "reviewing").length,
-    resolvedCount: items.filter((item) => item.triage_status === "resolved").length,
-    replyEnabledCount: items.filter((item) => item.interaction_capabilities?.reply_comments).length,
-  }
-})
+const canReplyToThread = computed(() =>
+  !!communityDetail.value?.threadId && !!communityDetail.value?.interactionCapabilities?.reply_comments
+)
 
-const scopeLabel = computed(() => {
-  const parts = [selectedPlatform.value === "all" ? "All platforms" : platformName(selectedPlatform.value)]
-  if (selectedAccountId.value) {
-    const account = accountOptions.value.find((item) => item.id === selectedAccountId.value)
-    if (account) parts.push(account.label)
-  } else {
-    parts.push("All channels")
-  }
-  return parts.join(" - ")
-})
+const communitySummary = computed(() => ({
+  totalPosts: communityItems.value.length,
+  postsWithComments: communityItems.value.filter((item) => item.commentCount > 0).length,
+  totalComments: communityItems.value.reduce((sum, item) => sum + item.commentCount, 0),
+  unresolved: communityItems.value.filter((item) => ["new", "reviewing"].includes(item.triageStatus)).length,
+}))
 
-const selectedThreadPosition = computed(() => {
-  const index = threads.value.findIndex((item) => item.id === selectedThreadId.value)
+const detailPosition = computed(() => {
+  const index = communityItems.value.findIndex((item) => item.externalObjectId === selectedCommunityItem.value?.externalObjectId)
   return index >= 0 ? index + 1 : 0
 })
 
@@ -212,43 +196,40 @@ const replyTargetPreview = computed(() =>
   truncateText(selectedReplyTarget.value?.body_text || "No text content.", 180)
 )
 
-watch(
-  [supportedSidebarAccounts, platformOptions],
-  ([accounts, platforms]) => {
-    const accountIds = new Set(accounts.map((item) => item.id))
-    const validPlatforms = new Set(platforms)
-    const patch: Record<string, string | undefined> = {}
-    if (selectedAccountId.value && !accountIds.has(selectedAccountId.value)) {
-      patch.account = undefined
-      patch.thread = undefined
-    }
-    if (selectedPlatform.value !== "all" && !validPlatforms.has(selectedPlatform.value)) {
-      patch.platform = undefined
-      patch.thread = undefined
-    }
-    if (Object.keys(patch).length) {
-      updateQuery(patch)
-    }
-  },
-  { immediate: true }
-)
+const pagePending = computed(() => communityPostsPending.value)
+const pageError = computed(() => communityPostsError.value || communityDetailError.value)
 
 watch(
-  threads,
-  (items) => {
-    if (!items.length) {
-      if (selectedThreadId.value) router.replace({ query: { ...route.query, thread: undefined } })
+  supportedSidebarAccounts,
+  (accounts) => {
+    const accountIds = new Set(accounts.map((item) => item.id))
+    if (selectedAccountId.value && !accountIds.has(selectedAccountId.value)) {
+      updateQuery({ account: accounts[0]?.id, post: undefined })
       return
     }
-    if (!selectedThreadId.value || !items.some((item) => item.id === selectedThreadId.value)) {
-      router.replace({ query: { ...route.query, thread: items[0].id } })
+    if (!selectedAccountId.value && accounts.length) {
+      updateQuery({ account: accounts[0].id, post: undefined })
     }
   },
   { immediate: true }
 )
 
 watch(
-  () => threadDetail.value?.id,
+  communityItems,
+  (items) => {
+    if (!items.length) {
+      if (selectedPostId.value) updateQuery({ post: undefined })
+      return
+    }
+    if (!selectedPostId.value || !items.some((item) => item.externalObjectId === selectedPostId.value)) {
+      updateQuery({ post: items[0].externalObjectId })
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => communityDetail.value?.threadId,
   () => {
     replyTargetId.value = ""
     replyBody.value = ""
@@ -260,24 +241,12 @@ function updateQuery(patch: Record<string, string | undefined>) {
   router.replace({ query: { ...route.query, ...patch } })
 }
 
-function setStatus(value: string) {
-  updateQuery({ status: value === "all" ? undefined : value, thread: undefined })
-}
-
-function setPlatform(value: string) {
-  updateQuery({ platform: value === "all" ? undefined : value, thread: undefined })
-}
-
-function setAccount(value: string) {
-  updateQuery({ account: value || undefined, thread: undefined })
-}
-
-function openThread(threadId: string) {
-  updateQuery({ thread: threadId })
+function openCommunityItem(itemId: string) {
+  updateQuery({ post: itemId })
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return t("inbox.time.no_activity")
+  if (!value) return "No activity yet"
   return new Date(value).toLocaleString(intlLocale.value, {
     month: "short",
     day: "numeric",
@@ -288,15 +257,15 @@ function formatDateTime(value?: string | null) {
 }
 
 function relativeTime(value?: string | null) {
-  if (!value) return t("inbox.time.no_activity")
+  if (!value) return "No activity"
   const diff = Date.now() - new Date(value).getTime()
   const minutes = Math.max(0, Math.floor(diff / 60000))
-  if (minutes < 1) return t("inbox.time.just_now")
-  if (minutes < 60) return t("inbox.time.minutes_ago", { count: minutes })
+  if (minutes < 1) return "just now"
+  if (minutes < 60) return `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t("inbox.time.hours_ago", { count: hours })
+  if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
-  return t("inbox.time.days_ago", { count: days })
+  return `${days}d ago`
 }
 
 function platformName(code?: string) {
@@ -308,15 +277,16 @@ function platformName(code?: string) {
     youtube: "YouTube",
     pinterest: "Pinterest",
   }
-  return names[code || ""] ?? code ?? t("inbox.filters.platform_fallback")
+  return names[code || ""] ?? code ?? "Channel"
 }
 
 function triageLabel(status: string) {
   const labels: Record<string, string> = {
-    new: t("inbox.triage.new"),
-    reviewing: t("inbox.triage.reviewing"),
-    resolved: t("inbox.triage.resolved"),
-    ignored: t("inbox.triage.ignored"),
+    new: "New",
+    reviewing: "Reviewing",
+    resolved: "Resolved",
+    ignored: "Ignored",
+    idle: "No thread",
   }
   return labels[status] ?? status
 }
@@ -327,12 +297,13 @@ function triageTone(status: string) {
     reviewing: "amber",
     resolved: "success",
     ignored: "muted",
+    idle: "muted",
   }
   return tones[status] ?? "muted"
 }
 
 function directionLabel(direction: string) {
-  return direction === "outbound" ? t("inbox.direction.reply") : t("inbox.direction.comment")
+  return direction === "outbound" ? "Reply" : "Comment"
 }
 
 function platformClass(code?: string) {
@@ -342,19 +313,71 @@ function platformClass(code?: string) {
     : "generic"
 }
 
-function truncateText(value: string, max = 120) {
+function truncateText(value: string, max = 140) {
   const normalized = value.replace(/\s+/g, " ").trim()
+  if (!normalized) return "No caption yet."
   if (normalized.length <= max) return normalized
   return `${normalized.slice(0, max - 3)}...`
 }
 
 function compactExternalId(value?: string | null) {
-  if (!value) return t("common.not_available")
+  if (!value) return "Not available"
   if (value.length <= 18) return value
   return `${value.slice(0, 8)}...${value.slice(-6)}`
 }
 
-function startReply(message: ThreadMessage) {
+function buildPostTitle(title?: string, bodyText?: string) {
+  const source = (title || bodyText || "").replace(/\s+/g, " ").trim()
+  if (!source) return "Untitled post"
+  return source.length > 88 ? `${source.slice(0, 88)}...` : source
+}
+
+function buildPostSnippet(snippet?: string, bodyText?: string, title?: string) {
+  const candidate = (snippet || truncateText(bodyText || "No caption yet.")).replace(/\s+/g, " ").trim()
+  const normalizedTitle = (title || "").replace(/\s+/g, " ").trim()
+  if (!candidate) return ""
+  if (!normalizedTitle) return candidate
+  if (candidate === normalizedTitle) return ""
+  const titlePrefix = normalizedTitle.replace(/\.\.\.$/, "").trim()
+  if (!titlePrefix) return candidate
+  if (candidate.startsWith(normalizedTitle)) return ""
+  if (candidate.startsWith(titlePrefix)) {
+    const remainder = candidate.slice(titlePrefix.length).replace(/^[\s,.;:!?-]+/, "").trim()
+    return remainder || ""
+  }
+  return candidate
+}
+
+function normalizeCommunityItem(item: CommunityItemApi): CommunityItem {
+  const title = buildPostTitle(item.title, item.body_text)
+  return {
+    externalObjectId: item.external_object_id,
+    threadId: item.thread_id,
+    relatedPostId: item.related_post_id,
+    accountId: item.account_id,
+    accountName: item.account_name,
+    platform: item.platform,
+    title,
+    bodyText: item.body_text || "",
+    snippet: buildPostSnippet(item.snippet, item.body_text, title),
+    publishedAt: item.published_at,
+    commentCount: item.comment_count || 0,
+    permalinkUrl: item.permalink_url || "",
+    previewImageUrl: item.preview_image_url || "",
+    lastActivityAt: item.last_activity_at,
+    triageStatus: item.triage_status || "idle",
+    interactionCapabilities: item.interaction_capabilities || { inbox_comments: false, reply_comments: false },
+  }
+}
+
+function normalizeCommunityDetail(item: CommunityItemApi & { messages: CommunityMessage[] }): CommunityDetail {
+  return {
+    ...normalizeCommunityItem(item),
+    messages: item.messages || [],
+  }
+}
+
+function startReply(message: CommunityMessage) {
   if (message.direction !== "inbound") return
   replyTargetId.value = message.id
   replyError.value = ""
@@ -375,256 +398,234 @@ async function queueSync() {
       method: "POST",
       body: selectedAccountId.value ? { account: selectedAccountId.value } : {},
     })
-    syncMessage.value = t("inbox.sync.queued")
-    await refreshThreads()
-    if (selectedThreadId.value) await refreshThreadDetail()
+    syncMessage.value = "Community sync queued."
+    await refreshCommunityPosts()
+    if (communityDetailPath.value) await refreshCommunityDetail()
   } catch (syncError) {
-    syncMessage.value = extractApiError(syncError, t("inbox.sync.queue_failed"))
+    syncMessage.value = extractApiError(syncError, "Could not queue community sync.")
   } finally {
     syncPending.value = false
   }
 }
 
 async function updateTriageStatus(nextStatus: string) {
-  if (!threadDetail.value) return
+  if (!communityDetail.value?.threadId) return
   triagePending.value = nextStatus
   try {
-    const updated = await apiFetch<ThreadDetail>(`/inbox/threads/${threadDetail.value.id}/`, {
+    await apiFetch(`/inbox/threads/${communityDetail.value.threadId}/`, {
       method: "PATCH",
       body: { triage_status: nextStatus },
     })
-    threadDetail.value = updated
-    await refreshThreads()
+    await Promise.all([refreshCommunityPosts(), refreshCommunityDetail()])
   } catch (triageError) {
-    syncMessage.value = extractApiError(triageError, t("inbox.triage.update_failed"))
+    syncMessage.value = extractApiError(triageError, "Could not update triage status.")
   } finally {
     triagePending.value = null
   }
 }
 
 async function sendReply() {
-  if (!threadDetail.value || !replyTargetId.value || !replyBody.value.trim()) return
+  if (!communityDetail.value?.threadId || !replyTargetId.value || !replyBody.value.trim()) return
   replyPending.value = true
   replyError.value = ""
   try {
-    const updated = await apiFetch<ThreadDetail>(`/inbox/threads/${threadDetail.value.id}/reply/`, {
+    await apiFetch(`/inbox/threads/${communityDetail.value.threadId}/reply/`, {
       method: "POST",
       body: {
         parent_message_id: replyTargetId.value,
         body_text: replyBody.value.trim(),
       },
     })
-    threadDetail.value = updated
     replyBody.value = ""
     replyTargetId.value = ""
-    await refreshThreads()
+    await Promise.all([refreshCommunityPosts(), refreshCommunityDetail()])
   } catch (replyRequestError) {
-    replyError.value = extractApiError(replyRequestError, t("inbox.errors.send_reply_failed"))
+    replyError.value = extractApiError(replyRequestError, "Could not send reply.")
   } finally {
     replyPending.value = false
   }
 }
+
+async function sendPostComment() {
+  if (!selectedAccountId.value || !selectedCommunityItem.value?.externalObjectId || !replyBody.value.trim()) return
+  replyPending.value = true
+  replyError.value = ""
+  try {
+    const updated = await apiFetch<CommunityItemApi & { messages: CommunityMessage[] }>(
+      `/inbox/community/${selectedAccountId.value}/posts/${encodeURIComponent(selectedCommunityItem.value.externalObjectId)}/comment/`,
+      {
+        method: "POST",
+        body: {
+          body_text: replyBody.value.trim(),
+        },
+      }
+    )
+    communityDetail.value = normalizeCommunityDetail(updated)
+    replyBody.value = ""
+    replyTargetId.value = ""
+    await refreshCommunityPosts()
+  } catch (commentError) {
+    replyError.value = extractApiError(commentError, "Could not post comment.")
+  } finally {
+    replyPending.value = false
+  }
+}
+
+async function sendComposer() {
+  if (selectedReplyTarget.value) {
+    await sendReply()
+    return
+  }
+  await sendPostComment()
+}
 </script>
 
 <template>
-  <div class="inbox-page">
-    <section class="inbox-shell">
-      <header class="mb-1 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div class="space-y-1">
-          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">{{ t("inbox.kicker") }}</p>
-          <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--ink)] md:text-4xl">{{ t("inbox.title") }}</h1>
-          <p class="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            {{ t("inbox.subtitle") }}
+  <div class="community-page">
+    <section class="community-shell">
+      <header class="community-header">
+        <div class="community-header-copy">
+          <p class="section-label">Community</p>
+          <h1>Comment workspace</h1>
+          <p>
+            Browse synced posts for the selected page on the left. Open any post to inspect comments and reply from the
+            detail pane.
           </p>
         </div>
 
-        <div class="inbox-header-actions">
-          <button class="sync-button" type="button" :disabled="syncPending || !hasInteractiveAccounts" @click="queueSync">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M20 12a8 8 0 0 0-14.74-4H8m-4 0V4m0 4h4m-4 4a8 8 0 0 0 14.74 4H16m4 0v4m0-4h-4"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.8"
-              />
-            </svg>
-            {{ syncPending ? t("inbox.queueing") : t("inbox.refresh") }}
-          </button>
-        </div>
+        <button class="sync-button" type="button" :disabled="syncPending || !hasInteractiveAccounts" @click="queueSync">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M20 12a8 8 0 0 0-14.74-4H8m-4 0V4m0 4h4m-4 4a8 8 0 0 0 14.74 4H16m4 0v4m0-4h-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </svg>
+          {{ syncPending ? "Queueing..." : "Refresh community" }}
+        </button>
       </header>
 
-      <section class="inbox-overview-card">
-        <div class="inbox-overview">
-          <div class="overview-metric overview-metric-primary">
-            <span>{{ t("inbox.overview.current_queue") }}</span>
-            <strong>{{ queueSummary.active }}</strong>
-            <p>{{ scopeLabel }}</p>
-          </div>
-          <div class="overview-metric" data-tone="danger">
-            <span>{{ t("inbox.overview.new") }}</span>
-            <strong>{{ queueSummary.newCount }}</strong>
-            <p>{{ t("inbox.overview.needs_first_review") }}</p>
-          </div>
-          <div class="overview-metric" data-tone="amber">
-            <span>{{ t("inbox.overview.reviewing") }}</span>
-            <strong>{{ queueSummary.reviewingCount }}</strong>
-            <p>{{ t("inbox.overview.in_active_triage") }}</p>
-          </div>
-          <div class="overview-metric" data-tone="success">
-            <span>{{ t("inbox.overview.resolved") }}</span>
-            <strong>{{ queueSummary.resolvedCount }}</strong>
-            <p>{{ t("inbox.overview.closed_in_view") }}</p>
+      <section class="community-overview-card">
+        <div class="community-overview">
+          <div class="overview-metric">
+            <span>Selected page</span>
+            <strong>{{ selectedAccount?.display_name || "Choose a page" }}</strong>
+            <p>{{ selectedAccount ? platformName(selectedAccount.channel_code || selectedAccount.provider_code) : "No page selected" }}</p>
           </div>
           <div class="overview-metric">
-            <span>{{ t("inbox.overview.reply_enabled") }}</span>
-            <strong>{{ queueSummary.replyEnabledCount }}</strong>
-            <p>{{ t("inbox.overview.channels_connected", { count: supportedSidebarAccounts.length }) }}</p>
+            <span>Posts loaded</span>
+            <strong>{{ communitySummary.totalPosts }}</strong>
+            <p>{{ communitySummary.postsWithComments }} with synced comments</p>
+          </div>
+          <div class="overview-metric" data-tone="danger">
+            <span>Open triage</span>
+            <strong>{{ communitySummary.unresolved }}</strong>
+            <p>Posts that still need attention</p>
+          </div>
+          <div class="overview-metric" data-tone="success">
+            <span>Total comments</span>
+            <strong>{{ communitySummary.totalComments }}</strong>
+            <p>Across the visible post list</p>
           </div>
         </div>
       </section>
 
-      <p v-if="error" class="inbox-error">{{ extractApiError(error, t("inbox.errors.load_failed")) }}</p>
-      <p v-if="syncMessage" class="inbox-note global-note">{{ syncMessage }}</p>
+      <p v-if="pageError" class="community-error">{{ extractApiError(pageError, "Could not load community data.") }}</p>
+      <p v-if="syncMessage" class="community-note">{{ syncMessage }}</p>
 
       <div v-if="!hasInteractiveAccounts" class="empty-state large-empty-state">
-        <strong>{{ t("inbox.empty.no_interactive_title") }}</strong>
-        <p>{{ t("inbox.empty.no_interactive_body") }}</p>
-        <NuxtLink class="post-link settings-link" :to="localePath('/app/settings')">{{ t("nav.settings") }}</NuxtLink>
+        <strong>No connected channels support Community yet.</strong>
+        <p>Connect a Facebook or Instagram page first, then come back here to review post conversations.</p>
+        <NuxtLink class="post-link settings-link" :to="localePath('/app/settings')">Open settings</NuxtLink>
       </div>
 
       <template v-else>
-        <section class="inbox-toolbar">
-          <div class="status-segments" role="tablist" aria-label="Thread status">
-            <button
-              v-for="option in statusOptions"
-              :key="option"
-              type="button"
-              class="status-segment"
-              :class="{ active: selectedStatus === option }"
-              @click="setStatus(option)"
-            >
-              {{ option === "all" ? t("common.all") : triageLabel(option) }}
-            </button>
-          </div>
-
-          <div class="inbox-filters">
-            <label class="filter-field">
-              <span>{{ t("inbox.filters.platform") }}</span>
-              <select :value="selectedPlatform" @change="setPlatform(($event.target as HTMLSelectElement).value)">
-                <option v-for="option in platformOptions" :key="option" :value="option">
-                  {{ platformName(option) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="filter-field">
-              <span>{{ t("inbox.filters.channel") }}</span>
-              <select :value="selectedAccountId" @change="setAccount(($event.target as HTMLSelectElement).value)">
-                <option value="">{{ t("inbox.filters.all_channels") }}</option>
-                <option v-for="option in accountOptions" :key="option.id" :value="option.id">
-                  {{ option.label }} - {{ option.platform }}
-                </option>
-              </select>
-            </label>
-          </div>
-        </section>
-
-        <section class="inbox-layout">
-          <aside class="inbox-list-card">
-            <div class="panel-head list-head">
+        <section class="community-layout">
+          <aside class="community-list-card">
+            <div class="panel-head">
               <div>
-                <p class="section-label">{{ t("inbox.list.queue") }}</p>
-                <h2>{{ t("inbox.list.conversations_count", { count: threads.length }) }}</h2>
+                <p class="section-label">Posts</p>
+                <h2>{{ communitySummary.totalPosts }} items</h2>
               </div>
-              <p class="panel-caption">{{ scopeLabel }}</p>
+              <p class="panel-caption">{{ selectedAccount?.display_name || "All interactive channels" }}</p>
             </div>
 
-            <div v-if="pending" class="empty-state">{{ t("inbox.list.loading") }}</div>
-            <div v-else-if="!threads.length" class="empty-state">
-              {{ t("inbox.list.empty") }}
+            <div v-if="pagePending" class="empty-state">Loading posts...</div>
+            <div v-else-if="!communityItems.length" class="empty-state">
+              No posts found for this page yet.
             </div>
-            <div v-else class="thread-list">
+            <div v-else class="community-post-list">
               <button
-                v-for="(thread, index) in threads"
-                :key="thread.id"
-                class="thread-row"
-                :class="{ active: thread.id === selectedThreadId }"
+                v-for="(item, index) in communityItems"
+                :key="item.externalObjectId"
+                class="community-post-card"
+                :class="{ active: item.externalObjectId === selectedCommunityItem?.externalObjectId }"
                 type="button"
-                @click="openThread(thread.id)"
+                @click="openCommunityItem(item.externalObjectId)"
               >
-                <div class="thread-row-top">
-                  <div class="thread-row-main">
-                    <div class="thread-badge" :data-platform="platformClass(thread.platform)">
-                      <PlatformIcon :platform="platformClass(thread.platform)" :size="16" />
+                <div class="community-post-head">
+                  <div class="community-post-main">
+                    <div class="community-post-badge" :data-platform="platformClass(item.platform)">
+                      <PlatformIcon :platform="platformClass(item.platform)" :size="16" />
                     </div>
-                    <div class="thread-copy">
-                      <strong>{{ thread.account_name }}</strong>
-                      <p>{{ platformName(thread.platform) }} - {{ thread.message_count }} messages</p>
+                    <div class="community-post-copy">
+                      <strong>{{ item.title }}</strong>
+                      <p v-if="item.snippet">{{ item.snippet }}</p>
                     </div>
                   </div>
-                  <span class="thread-order">#{{ index + 1 }}</span>
+                  <span class="community-post-order">#{{ index + 1 }}</span>
                 </div>
 
-                <div class="thread-row-meta">
-                  <span class="thread-status-pill" :data-tone="triageTone(thread.triage_status)">
-                    {{ triageLabel(thread.triage_status) }}
-                  </span>
-                  <div class="thread-meta-group">
-                    <span class="thread-time">{{ relativeTime(thread.last_message_at) }}</span>
-                    <span v-if="thread.interaction_capabilities.reply_comments" class="thread-meta-pill">Reply enabled</span>
+                <div class="community-post-meta">
+                  <span class="status-pill" :data-tone="triageTone(item.triageStatus)">{{ triageLabel(item.triageStatus) }}</span>
+                  <div class="community-post-meta-right">
+                    <span class="count-pill">{{ item.commentCount }} comments</span>
+                    <span class="time-pill">{{ relativeTime(item.lastActivityAt) }}</span>
                   </div>
                 </div>
               </button>
             </div>
           </aside>
 
-          <article class="inbox-detail-card">
-            <div v-if="!threadDetail" class="empty-state">
-              Select a thread to review synced comments.
+          <article class="community-detail-card">
+            <div v-if="!selectedCommunityItem" class="empty-state">
+              Select a post from the left list to inspect its thread.
             </div>
             <template v-else>
               <div class="detail-hero">
                 <div class="detail-title-row">
-                  <div class="detail-thread-avatar" :data-platform="platformClass(threadDetail.platform)">
-                    <PlatformIcon :platform="platformClass(threadDetail.platform)" :size="18" />
+                  <div class="detail-thread-avatar" :data-platform="platformClass(selectedCommunityItem.platform)">
+                    <PlatformIcon :platform="platformClass(selectedCommunityItem.platform)" :size="18" />
                   </div>
 
                   <div class="detail-title-copy">
-                    <p class="section-label">
-                      Thread {{ selectedThreadPosition ? `#${selectedThreadPosition}` : "" }}
-                    </p>
-                    <h2>{{ threadDetail.account_name }}</h2>
+                    <p class="section-label">Post {{ detailPosition ? `#${detailPosition}` : "" }}</p>
+                    <h2>{{ selectedCommunityItem.accountName }}</h2>
                     <p class="detail-meta">
-                      {{ platformName(threadDetail.platform) }} - synced {{ formatDateTime(threadDetail.last_synced_at) }}
+                      {{ selectedCommunityItem.accountName }} - {{ platformName(selectedCommunityItem.platform) }} - last activity
+                      {{ formatDateTime(selectedCommunityItem.lastActivityAt) }}
                     </p>
                   </div>
                 </div>
 
                 <div class="detail-actions">
-                  <NuxtLink
-                    v-if="threadDetail.related_post_id"
+                  <a
+                    v-if="selectedCommunityItem.permalinkUrl"
                     class="post-link"
-                    :to="`/app/posts?post=${threadDetail.related_post_id}`"
+                    :href="selectedCommunityItem.permalinkUrl"
+                    rel="noreferrer"
+                    target="_blank"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M14 5h5v5m0-5-8 8m-4 6H5a2 2 0 0 1-2-2v-2m16 4v-5m-9 8H9"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="1.8"
-                      />
-                    </svg>
                     Open post
-                  </NuxtLink>
+                  </a>
 
-                  <label class="filter-field compact-field">
+                  <label v-if="communityDetail?.threadId" class="filter-field compact-field">
                     <span>Triage</span>
                     <select
-                      :value="threadDetail.triage_status"
+                      :value="communityDetail?.triageStatus"
                       :disabled="!!triagePending"
                       @change="updateTriageStatus(($event.target as HTMLSelectElement).value)"
                     >
@@ -639,12 +640,12 @@ async function sendReply() {
 
               <div class="detail-summary">
                 <div class="summary-pill">
-                  <span>Status</span>
-                  <strong>{{ triageLabel(threadDetail.triage_status) }}</strong>
+                  <span>Thread status</span>
+                  <strong>{{ triageLabel(selectedCommunityItem.triageStatus) }}</strong>
                 </div>
                 <div class="summary-pill">
-                  <span>Timeline</span>
-                  <strong>{{ detailMessages.length }} events</strong>
+                  <span>Comments</span>
+                  <strong>{{ selectedCommunityItem.commentCount }}</strong>
                 </div>
                 <div class="summary-pill">
                   <span>Mix</span>
@@ -652,21 +653,42 @@ async function sendReply() {
                 </div>
                 <div class="summary-pill">
                   <span>Provider object</span>
-                  <strong :title="threadDetail.external_object_id">{{ compactExternalId(threadDetail.external_object_id) }}</strong>
+                  <strong :title="selectedCommunityItem.externalObjectId">{{ compactExternalId(selectedCommunityItem.externalObjectId) }}</strong>
                 </div>
               </div>
 
-              <section class="conversation-section">
-                <div class="panel-head conversation-head">
+              <section class="post-body-card">
+                <div class="panel-head">
                   <div>
-                    <p class="section-label">Timeline</p>
-                    <h3>Messages in thread order</h3>
+                    <p class="section-label">Content</p>
+                    <h3>Full post content</h3>
                   </div>
-                  <p class="panel-caption">Last message {{ formatDateTime(threadDetail.last_message_at) }}</p>
+                  <p class="panel-caption">
+                    {{ selectedCommunityItem.publishedAt ? `Published ${formatDateTime(selectedCommunityItem.publishedAt)}` : "Not published yet" }}
+                  </p>
+                </div>
+                <p class="post-body-text">
+                  {{ selectedCommunityItem.bodyText || selectedCommunityItem.snippet }}
+                </p>
+              </section>
+
+              <section class="conversation-section">
+                <div class="panel-head">
+                  <div>
+                    <p class="section-label">Community</p>
+                    <h3>Comments and replies</h3>
+                  </div>
+                  <p class="panel-caption" v-if="communityDetail">Last activity {{ formatDateTime(communityDetail.lastActivityAt) }}</p>
                 </div>
 
-                <div v-if="!detailMessages.length" class="empty-state">
-                  This thread has no synced comments yet.
+                <div v-if="communityDetailPending" class="empty-state">
+                  Loading post detail...
+                </div>
+                <div v-else-if="!communityDetail" class="empty-state">
+                  Could not load this post yet.
+                </div>
+                <div v-else-if="!detailMessages.length" class="empty-state">
+                  This post has no comments yet.
                 </div>
                 <div v-else class="message-list">
                   <article
@@ -688,23 +710,13 @@ async function sendReply() {
                           <span class="message-direction">{{ directionLabel(message.direction) }}</span>
                         </div>
                         <div class="message-head-actions">
-                          <small>{{ formatDateTime(message.published_at) }}</small>
+                          <small>{{ relativeTime(message.published_at) }}</small>
                           <button
                             v-if="message.direction === 'inbound' && canReplyToThread"
                             class="message-action"
                             type="button"
                             @click="startReply(message)"
                           >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path
-                                d="M10 9 5 12l5 3M5 12h8a6 6 0 0 1 6 6"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="1.8"
-                              />
-                            </svg>
                             Reply
                           </button>
                         </div>
@@ -716,13 +728,11 @@ async function sendReply() {
                 </div>
               </section>
 
-              <section class="reply-composer" :class="{ disabled: !canReplyToThread }">
+              <section class="reply-composer" :class="{ disabled: !canCommentOnPost }">
                 <div class="reply-composer-head">
                   <div>
-                    <p class="section-label">Reply composer</p>
-                    <strong>
-                      {{ selectedReplyTarget ? `Replying to ${selectedReplyTarget.author_name}` : "Select a comment above" }}
-                    </strong>
+                    <p class="section-label">{{ selectedReplyTarget ? "Reply composer" : "Post comment" }}</p>
+                    <strong>{{ selectedReplyTarget ? `Replying to ${selectedReplyTarget.author_name}` : "Comment directly on this post" }}</strong>
                   </div>
                   <button
                     v-if="selectedReplyTarget"
@@ -740,16 +750,22 @@ async function sendReply() {
                   <p>{{ replyTargetPreview }}</p>
                 </div>
 
-                <p v-if="replyError" class="inbox-error reply-error">{{ replyError }}</p>
-                <p v-if="!canReplyToThread" class="inbox-note">
+                <p v-if="replyError" class="community-error">{{ replyError }}</p>
+                <p v-if="selectedReplyTarget && communityDetail && !canReplyToThread" class="community-note">
                   Replies are not available for this channel.
+                </p>
+                <p v-else-if="selectedReplyTarget && !communityDetail?.threadId" class="community-note">
+                  Replies become available after the post has a synced thread.
+                </p>
+                <p v-else class="community-note">
+                  Type here to publish a new comment directly on the post.
                 </p>
 
                 <textarea
                   v-model="replyBody"
                   class="reply-input"
-                  :disabled="replyPending || !canReplyToThread"
-                  placeholder="Write a reply"
+                  :disabled="replyPending || !canCommentOnPost || (!!selectedReplyTarget && !canReplyToThread)"
+                  :placeholder="selectedReplyTarget ? 'Write a reply' : 'Write a comment on this post'"
                   rows="4"
                 />
 
@@ -758,27 +774,17 @@ async function sendReply() {
                     {{
                       selectedReplyTarget
                         ? "Your reply will be posted directly to the selected comment."
-                        : "Choose an inbound comment in the thread before sending."
+                        : "This message will be posted as a new top-level comment on the post."
                     }}
                   </span>
 
                   <button
                     class="sync-button primary-action"
                     type="button"
-                    :disabled="replyPending || !selectedReplyTarget || !replyBody.trim() || !canReplyToThread"
-                    @click="sendReply"
+                    :disabled="replyPending || !replyBody.trim() || !canCommentOnPost || (!!selectedReplyTarget && !canReplyToThread)"
+                    @click="sendComposer"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M4 12h13m0 0-5-5m5 5-5 5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="1.8"
-                      />
-                    </svg>
-                    {{ replyPending ? "Sending..." : "Send reply" }}
+                    {{ replyPending ? "Sending..." : selectedReplyTarget ? "Send reply" : "Post comment" }}
                   </button>
                 </div>
               </section>
@@ -791,7 +797,7 @@ async function sendReply() {
 </template>
 
 <style scoped>
-.inbox-page {
+.community-page {
   min-height: 100%;
   padding: 28px;
   background:
@@ -799,40 +805,116 @@ async function sendReply() {
     var(--page-gradient);
 }
 
-.inbox-shell {
-  max-width: 1320px;
+.community-shell {
+  max-width: 1380px;
   margin: 0 auto;
   display: grid;
   gap: 20px;
 }
 
-.inbox-overview-card,
-.inbox-toolbar,
-.inbox-list-card,
-.inbox-detail-card {
+.community-header,
+.community-overview-card,
+.community-list-card,
+.community-detail-card,
+.post-body-card {
   border: 1px solid var(--line-soft);
-  border-radius: 20px;
+  border-radius: 22px;
   background: var(--panel);
   box-shadow: var(--shadow-panel);
 }
 
-.inbox-header-copy,
-.panel-head,
-.filter-field,
+.community-header,
+.detail-hero,
 .detail-actions,
+.reply-actions,
+.message-head,
+.community-post-head,
+.community-post-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.community-header {
+  padding: 26px 28px;
+}
+
+.community-header-copy,
+.panel-head,
 .reply-composer,
-.reply-composer-head {
+.reply-composer-head,
+.detail-title-copy,
+.community-post-copy,
+.message-head-main,
+.message-head-actions {
   display: grid;
   gap: 8px;
 }
 
-.inbox-overview-card {
+.community-header-copy h1,
+.panel-head h2,
+.panel-head h3,
+.detail-title-copy h2 {
+  margin: 0;
+  color: var(--ink);
+}
+
+.community-header-copy p:last-child,
+.panel-caption,
+.detail-meta,
+.community-note,
+.reply-hint,
+.message-direction,
+.message-head small,
+.community-post-copy p,
+.empty-state {
+  color: var(--muted);
+}
+
+.section-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sync-button,
+.post-link,
+.message-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.sync-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.primary-action {
+  background: linear-gradient(180deg, var(--action-fill-start) 0%, var(--action-fill-end) 100%);
+  border-color: var(--action-border);
+  color: var(--action-ink);
+}
+
+.community-overview-card {
   padding: 24px;
 }
 
-.inbox-overview {
+.community-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -866,381 +948,29 @@ async function sendReply() {
 
 .overview-metric p {
   margin: 0;
-  color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+  color: var(--muted);
 }
 
 .overview-metric[data-tone="danger"] strong {
   color: #a02e22;
 }
 
-.overview-metric[data-tone="amber"] strong {
-  color: #ad5c16;
-}
-
 .overview-metric[data-tone="success"] strong {
   color: var(--brand-fill);
 }
 
-.inbox-kicker,
-.section-label {
+.community-error,
+.community-note {
   margin: 0;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
 }
 
-.inbox-header h1,
-.panel-head h2 {
-  margin: 0;
-  color: var(--ink);
-}
-
-.inbox-subtitle,
-.thread-copy p,
-.detail-meta,
-.inbox-note,
-.panel-caption,
-.filter-field span,
-.empty-state,
-.message-head small,
-.reply-hint,
-.message-direction {
-  color: var(--muted);
-}
-
-.global-note {
-  margin-top: -8px;
-}
-
-.sync-button,
-.post-link,
-.message-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-muted);
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.sync-button svg,
-.post-link svg,
-.message-action svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.sync-button:disabled,
-.message-action:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-.primary-action {
-  background: linear-gradient(180deg, var(--action-fill-start) 0%, var(--action-fill-end) 100%);
-  border-color: var(--action-border);
-  color: var(--action-ink);
-}
-
-.inbox-error {
-  margin: 0;
+.community-error {
   color: #a02e22;
 }
 
-.inbox-note,
-.reply-error {
-  margin: 0;
-}
-
-.inbox-toolbar {
-  padding: 18px 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.status-segments {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.status-segment {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-weight: 700;
-  transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease, transform 0.14s ease;
-}
-
-.status-segment:hover {
-  transform: translateY(-1px);
-  border-color: var(--brand-outline);
-  color: var(--ink);
-}
-
-.status-segment.active {
-  border-color: rgba(90, 121, 107, 0.4);
-  background: rgba(127, 162, 147, 0.14);
-  color: var(--ink);
-}
-
-.inbox-filters {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 14px;
-}
-
-.filter-field {
-  min-width: 190px;
-}
-
-.filter-field select,
-.reply-input {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--input-bg);
-  color: var(--ink);
-}
-
-.reply-input {
-  min-height: 110px;
-  padding: 12px;
-  resize: vertical;
-  font: inherit;
-}
-
-.inbox-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.48fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.inbox-list-card,
-.inbox-detail-card {
-  padding: 22px;
-}
-
-.thread-list,
-.message-list {
-  display: grid;
-  gap: 12px;
-}
-
-.list-head,
-.conversation-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.panel-caption {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  text-align: right;
-}
-
-.thread-row {
-  width: 100%;
-  padding: 14px 15px;
-  border-radius: 16px;
-  border: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)), var(--surface-muted);
-  color: var(--ink);
-  display: grid;
-  gap: 12px;
-  text-align: left;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease, background 0.14s ease;
-}
-
-.thread-row:hover {
-  transform: translateY(-1px);
-  border-color: rgba(90, 121, 107, 0.22);
-  box-shadow: var(--shadow-soft);
-}
-
-.thread-row.active {
-  border-color: rgba(90, 121, 107, 0.48);
-  background: linear-gradient(180deg, rgba(127, 162, 147, 0.12), rgba(127, 162, 147, 0.04)), var(--surface-muted);
-  box-shadow: var(--shadow-soft);
-}
-
-.thread-row-top,
-.thread-row-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.thread-row-top {
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.thread-order {
-  flex-shrink: 0;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.thread-copy {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.thread-copy strong,
-.message-head strong,
-.summary-pill strong,
-.reply-composer strong {
-  color: var(--ink);
-}
-
-.thread-copy strong {
-  display: block;
-  font-size: 14px;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.thread-copy p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.thread-badge {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: #516177;
-  color: #ffffff;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-
-.thread-badge[data-platform="facebook"],
-.detail-thread-avatar[data-platform="facebook"] {
-  background: #1877f2;
-}
-
-.thread-badge[data-platform="instagram"],
-.detail-thread-avatar[data-platform="instagram"] {
-  background: #e1306c;
-}
-
-.thread-badge[data-platform="linkedin"],
-.detail-thread-avatar[data-platform="linkedin"] {
-  background: #0a66c2;
-}
-
-.thread-badge[data-platform="tiktok"],
-.detail-thread-avatar[data-platform="tiktok"] {
-  background: #111111;
-}
-
-.thread-badge[data-platform="youtube"],
-.detail-thread-avatar[data-platform="youtube"] {
-  background: #ff0000;
-}
-
-.thread-badge[data-platform="pinterest"],
-.detail-thread-avatar[data-platform="pinterest"] {
-  background: #e60023;
-}
-
-.thread-row-meta {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.thread-meta-group {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.thread-status-pill,
-.thread-count {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.thread-status-pill {
-  padding: 0 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.thread-status-pill[data-tone="success"] {
-  background: rgba(127, 162, 147, 0.18);
-  color: var(--brand-strong);
-}
-
-.thread-status-pill[data-tone="amber"] {
-  background: rgba(230, 126, 34, 0.14);
-  color: #ad5c16;
-}
-
-.thread-status-pill[data-tone="danger"] {
-  background: rgba(160, 46, 34, 0.12);
-  color: #a02e22;
-}
-
-.thread-status-pill[data-tone="muted"] {
-  background: rgba(107, 118, 111, 0.14);
-  color: #58625c;
-}
-
-.thread-time,
-.thread-meta-pill {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.thread-meta-pill {
-  min-height: 24px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(31, 75, 57, 0.08);
-  color: var(--brand-fill);
-}
-
+.large-empty-state,
 .empty-state {
   padding: 18px;
   border-radius: 18px;
@@ -1257,41 +987,188 @@ async function sendReply() {
   width: fit-content;
 }
 
-.detail-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.community-layout {
+  display: grid;
+  grid-template-columns: minmax(330px, 0.82fr) minmax(0, 1.48fr);
   gap: 18px;
+  align-items: start;
 }
 
-.detail-title-row {
+.community-list-card,
+.community-detail-card {
+  padding: 22px;
+}
+
+.community-post-list,
+.message-list {
+  display: grid;
+  gap: 12px;
+}
+
+.panel-head {
+  margin-bottom: 16px;
+}
+
+.panel-caption {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.community-post-card {
+  width: 100%;
+  padding: 14px 15px;
+  border-radius: 18px;
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)), var(--surface-muted);
+  color: var(--ink);
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.community-post-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(90, 121, 107, 0.24);
+  box-shadow: var(--shadow-soft);
+}
+
+.community-post-card.active {
+  border-color: rgba(90, 121, 107, 0.48);
+  background: linear-gradient(180deg, rgba(127, 162, 147, 0.12), rgba(127, 162, 147, 0.04)), var(--surface-muted);
+}
+
+.community-post-main {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
+}
+
+.community-post-copy {
+  min-width: 0;
+}
+
+.community-post-copy strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.community-post-copy p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.community-post-order {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.community-post-badge,
+.detail-thread-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #516177;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .detail-thread-avatar {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
-.detail-title-copy {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
+.community-post-badge[data-platform="facebook"],
+.detail-thread-avatar[data-platform="facebook"] {
+  background: #1877f2;
 }
 
-.detail-title-copy h2,
-.conversation-head h3 {
-  margin: 0;
-  color: var(--ink);
+.community-post-badge[data-platform="instagram"],
+.detail-thread-avatar[data-platform="instagram"] {
+  background: #e1306c;
+}
+
+.community-post-badge[data-platform="linkedin"],
+.detail-thread-avatar[data-platform="linkedin"] {
+  background: #0a66c2;
+}
+
+.community-post-badge[data-platform="tiktok"],
+.detail-thread-avatar[data-platform="tiktok"] {
+  background: #111111;
+}
+
+.community-post-badge[data-platform="youtube"],
+.detail-thread-avatar[data-platform="youtube"] {
+  background: #ff0000;
+}
+
+.community-post-badge[data-platform="pinterest"],
+.detail-thread-avatar[data-platform="pinterest"] {
+  background: #e60023;
+}
+
+.community-post-meta-right {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.status-pill,
+.count-pill,
+.time-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.status-pill {
+  padding: 0 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-pill[data-tone="success"] {
+  background: rgba(127, 162, 147, 0.18);
+  color: var(--brand-strong);
+}
+
+.status-pill[data-tone="amber"] {
+  background: rgba(230, 126, 34, 0.14);
+  color: #ad5c16;
+}
+
+.status-pill[data-tone="danger"] {
+  background: rgba(160, 46, 34, 0.12);
+  color: #a02e22;
+}
+
+.status-pill[data-tone="muted"] {
+  background: rgba(107, 118, 111, 0.14);
+  color: #58625c;
+}
+
+.count-pill,
+.time-pill {
+  padding: 0 10px;
+  color: var(--muted);
+  background: rgba(19, 38, 27, 0.05);
 }
 
 .detail-summary {
@@ -1310,13 +1187,28 @@ async function sendReply() {
   gap: 6px;
 }
 
-.summary-pill strong {
-  line-height: 1.4;
+.summary-pill strong,
+.message-head strong,
+.reply-composer strong {
+  color: var(--ink);
+}
+
+.post-body-card,
+.reply-composer {
+  padding: 18px;
+}
+
+.post-body-text {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 .conversation-section {
   display: grid;
   gap: 14px;
+  margin-top: 18px;
 }
 
 .message-card {
@@ -1377,20 +1269,6 @@ async function sendReply() {
   background: var(--brand);
 }
 
-.message-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.message-head-main,
-.message-head-actions {
-  display: grid;
-  gap: 4px;
-}
-
 .message-head-actions {
   justify-items: end;
   text-align: right;
@@ -1412,7 +1290,8 @@ async function sendReply() {
   width: fit-content;
 }
 
-.message-surface p {
+.message-surface p,
+.reply-target p {
   margin: 0;
   color: var(--ink);
   line-height: 1.55;
@@ -1420,10 +1299,11 @@ async function sendReply() {
 
 .reply-composer {
   margin-top: 18px;
-  padding: 16px;
-  border-radius: 16px;
   border: 1px solid var(--line-soft);
+  border-radius: 18px;
   background: var(--surface-muted);
+  display: grid;
+  gap: 14px;
 }
 
 .reply-target {
@@ -1443,26 +1323,26 @@ async function sendReply() {
   color: var(--muted);
 }
 
-.reply-target p {
-  margin: 0;
+.reply-input,
+.filter-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
   color: var(--ink);
-  line-height: 1.55;
+}
+
+.reply-input {
+  min-height: 110px;
+  padding: 12px;
+  resize: vertical;
+  font: inherit;
 }
 
 .reply-composer.disabled {
   opacity: 0.84;
-}
-
-.reply-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.reply-hint {
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 .compact-field {
@@ -1470,9 +1350,9 @@ async function sendReply() {
 }
 
 @media (max-width: 1180px) {
-  .inbox-layout,
+  .community-layout,
   .detail-summary,
-  .inbox-overview {
+  .community-overview {
     grid-template-columns: 1fr;
   }
 
@@ -1489,97 +1369,37 @@ async function sendReply() {
   }
 }
 
-@media (max-width: 1040px) {
-  .inbox-toolbar,
-  .detail-hero,
-  .list-head,
-  .conversation-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .inbox-filters {
-    justify-content: stretch;
-  }
-
-  .filter-field {
-    flex: 1 1 220px;
-  }
-
-  .detail-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .inbox-page {
+@media (max-width: 860px) {
+  .community-page {
     padding: 20px;
   }
 
+  .community-header,
+  .detail-hero,
+  .detail-actions,
   .reply-actions,
   .message-head,
-  .thread-row-top,
-  .thread-row-meta {
+  .community-post-head,
+  .community-post-meta {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .inbox-header-actions {
-    width: 100%;
+  .community-list-card,
+  .community-detail-card,
+  .community-overview-card {
+    padding: 18px;
   }
 
+  .community-post-meta-right,
   .message-head-actions {
+    justify-content: flex-start;
     justify-items: start;
     text-align: left;
   }
 
-  .thread-meta-group {
-    justify-content: flex-start;
-  }
-
-  .status-segments {
-    width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-  }
-
-  .status-segment {
-    flex: 0 0 auto;
-  }
-
-  .inbox-overview-card,
-  .inbox-toolbar,
-  .inbox-list-card,
-  .inbox-detail-card {
-    padding: 18px;
-  }
-
   .message-card {
     margin-left: calc(var(--depth, 0) * 12px);
-  }
-
-  .detail-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 560px) {
-  .detail-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .detail-title-row {
-    width: 100%;
-  }
-
-  .detail-title-copy,
-  .detail-title-copy h2 {
-    min-width: 0;
-  }
-
-  .detail-title-copy h2 {
-    overflow-wrap: anywhere;
   }
 }
 </style>

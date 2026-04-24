@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from uuid import UUID
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,8 +7,11 @@ from rest_framework.views import APIView
 
 from social.models import SocialAccount
 
-from .models import InteractionThread
+from .models import InteractionMessage, InteractionThread
 from .serializers import (
+    CommunityPostDetailSerializer,
+    CommunityPostListItemSerializer,
+    InteractionPostCommentSerializer,
     InboxSyncRequestSerializer,
     InteractionReplySerializer,
     InteractionThreadDetailSerializer,
@@ -16,6 +20,9 @@ from .serializers import (
 )
 from .services import (
     account_supports_inbox_comments,
+    comment_on_community_post,
+    community_post_detail_for_account,
+    community_posts_for_account,
     inbox_thread_queryset_for_workspace,
     reply_to_thread_comment,
 )
@@ -57,7 +64,11 @@ class InboxThreadViewSet(
         thread = self.get_object()
         serializer = InteractionReplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        parent_message = get_object_or_404(thread.messages.all(), pk=serializer.validated_data["parent_message_id"])
+        parent_message_ref = serializer.validated_data["parent_message_id"]
+        try:
+            parent_message = thread.messages.get(pk=UUID(parent_message_ref))
+        except (ValueError, TypeError, InteractionMessage.DoesNotExist):
+            parent_message = get_object_or_404(thread.messages.all(), external_id=parent_message_ref)
         reply_to_thread_comment(
             thread=thread,
             parent_message=parent_message,
@@ -94,3 +105,52 @@ class InboxSyncView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class InboxCommunityPostsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, account_id: str):
+        account = get_object_or_404(
+            SocialAccount.objects.select_related("provider"),
+            pk=account_id,
+            workspace=request.user.workspace,
+        )
+        payload = community_posts_for_account(account)
+        serializer = CommunityPostListItemSerializer(payload, many=True)
+        return Response(serializer.data)
+
+
+class InboxCommunityPostDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, account_id: str, external_object_id: str):
+        account = get_object_or_404(
+            SocialAccount.objects.select_related("provider"),
+            pk=account_id,
+            workspace=request.user.workspace,
+        )
+        payload = community_post_detail_for_account(account, external_object_id=external_object_id)
+        serializer = CommunityPostDetailSerializer(payload)
+        return Response(serializer.data)
+
+
+class InboxCommunityPostCommentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, account_id: str, external_object_id: str):
+        account = get_object_or_404(
+            SocialAccount.objects.select_related("provider"),
+            pk=account_id,
+            workspace=request.user.workspace,
+        )
+        serializer = InteractionPostCommentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment_on_community_post(
+            account=account,
+            external_object_id=external_object_id,
+            body_text=serializer.validated_data["body_text"],
+            user=request.user,
+        )
+        payload = community_post_detail_for_account(account, external_object_id=external_object_id)
+        return Response(CommunityPostDetailSerializer(payload).data, status=status.HTTP_201_CREATED)

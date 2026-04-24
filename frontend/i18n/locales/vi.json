@@ -5,7 +5,7 @@
     "publish": "Đăng bài",
     "calendar": "Lịch",
     "analytics": "Phân tích",
-    "inbox": "Hộp thư",
+    "inbox": "Tương tác",
     "media": "Media",
     "settings": "Cài đặt"
   },
@@ -145,18 +145,18 @@
     }
   },
   "inbox": {
-    "kicker": "Hộp thư",
+    "kicker": "Tương tác",
     "title": "Tương tác bình luận",
     "subtitle": "Xem bình luận đã đồng bộ từ các kênh hỗ trợ, đưa hội thoại qua các trạng thái triage và trả lời ngay trong cùng workspace.",
-    "refresh": "Làm mới hộp thư",
+    "refresh": "Làm mới tương tác",
     "queueing": "Đang xếp hàng...",
     "errors": {
-      "load_failed": "Không thể tải hộp thư.",
+      "load_failed": "Không thể tải tương tác.",
       "send_reply_failed": "Không thể gửi trả lời."
     },
     "empty": {
       "no_interactive_title": "Chưa kết nối kênh tương tác",
-      "no_interactive_body": "Hãy kết nối Facebook Page hoặc Instagram Business (Meta) để dùng Inbox interactions."
+      "no_interactive_body": "Hãy kết nối Facebook Page hoặc Instagram Business (Meta) để dùng mục tương tác."
     },
     "overview": {
       "current_queue": "Hàng đợi hiện tại",
@@ -198,13 +198,13 @@
       "days_ago": "{count} ngày trước"
     },
     "sync": {
-      "queued": "Đã xếp hàng làm mới inbox. Worker nền sẽ kéo bình luận mới.",
-      "queue_failed": "Không thể xếp hàng làm mới inbox."
+      "queued": "Đã xếp hàng làm mới tương tác. Worker nền sẽ kéo bình luận mới.",
+      "queue_failed": "Không thể xếp hàng làm mới tương tác."
     },
     "list": {
       "queue": "Hàng đợi",
       "conversations_count": "{count} hội thoại",
-      "loading": "Đang tải hộp thư...",
+      "loading": "Đang tải tương tác...",
       "empty": "Chưa có thread bình luận nào khớp bộ lọc này."
     }
   },
