@@ -484,9 +484,9 @@ watch(
 watch(
   () => tiktokForm.brand_content_toggle,
   (enabled) => {
-    if (!enabled || tiktokForm.privacy_level !== "SELF_ONLY") return
-    const fallback = tiktokPrivacyOptions.value.find((option) => option !== "SELF_ONLY")
-    if (fallback) tiktokForm.privacy_level = fallback
+    if (enabled && tiktokForm.privacy_level === "SELF_ONLY") {
+      tiktokForm.brand_content_toggle = false
+    }
   }
 )
 
@@ -643,13 +643,13 @@ function resetTikTokForm() {
   tiktokOptionsError.value = ""
   tiktokOptionsAccountId.value = ""
   tiktokForm.privacy_level = ""
-  tiktokForm.allow_comment = true
+  tiktokForm.allow_comment = false
   tiktokForm.allow_duet = false
   tiktokForm.allow_stitch = false
   tiktokForm.commercial_content_enabled = false
   tiktokForm.brand_organic_toggle = false
   tiktokForm.brand_content_toggle = false
-  tiktokForm.consent_confirmed = true
+  tiktokForm.consent_confirmed = false
 }
 
 async function readVideoDuration(url: string): Promise<number | null> {
@@ -704,27 +704,6 @@ function applyTikTokOverride(override?: Record<string, any> | null) {
   tiktokForm.consent_confirmed = Boolean(override?.consent_confirmed)
 }
 
-function defaultTikTokPrivacyOption(options: string[]) {
-  if (!options.length) return ""
-  const preferredOrder = import.meta.dev
-    ? [
-        "SELF_ONLY",
-        "FOLLOWER_OF_CREATOR",
-        "MUTUAL_FOLLOW_FRIENDS",
-        "PUBLIC_TO_EVERYONE",
-      ]
-    : [
-        "PUBLIC_TO_EVERYONE",
-        "FOLLOWER_OF_CREATOR",
-        "MUTUAL_FOLLOW_FRIENDS",
-        "SELF_ONLY",
-      ]
-  for (const option of preferredOrder) {
-    if (options.includes(option)) return option
-  }
-  return options[0] || ""
-}
-
 async function loadTikTokPublishOptions(accountId: string) {
   if (!accountId) return
   if (tiktokOptionsLoading.value && tiktokOptionsAccountId.value === accountId) return
@@ -741,7 +720,7 @@ async function loadTikTokPublishOptions(accountId: string) {
     beginComposerProgrammaticUpdate()
     tiktokOptions.value = payload
     if (!tiktokPrivacyOptions.value.includes(tiktokForm.privacy_level)) {
-      tiktokForm.privacy_level = defaultTikTokPrivacyOption(payload.privacy_level_options || [])
+      tiktokForm.privacy_level = ""
     }
     if (payload.comment_disabled) tiktokForm.allow_comment = false
     if (payload.duet_disabled) tiktokForm.allow_duet = false
@@ -769,6 +748,10 @@ function tiktokPrivacyLabel(value: string) {
     SELF_ONLY: "Only me",
   }
   return labels[value] || value
+}
+
+function tiktokPrivacyOptionDisabled(value: string) {
+  return value === "SELF_ONLY" && tiktokForm.brand_content_toggle
 }
 
 function publishingPendingMessage(postsToCheck: Post[]) {
@@ -1927,6 +1910,115 @@ function pageHint() {
             </div>
           </div>
 
+          <div v-if="hasTikTokSelection" class="editor-block">
+            <label class="editor-label">TikTok settings</label>
+            <div v-if="tiktokOptionsLoading" class="tiktok-helper-copy">
+              Loading latest TikTok creator settings...
+            </div>
+            <div v-else-if="tiktokOptionsError" class="editor-alert danger">
+              {{ tiktokOptionsError }}
+            </div>
+            <template v-else>
+              <div class="tiktok-grid">
+                <label class="tiktok-field">
+                  <span>Privacy status</span>
+                  <select v-model="tiktokForm.privacy_level" class="tiktok-select">
+                    <option value="" disabled>Select privacy</option>
+                    <option
+                      v-for="option in tiktokPrivacyOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="tiktokPrivacyOptionDisabled(option)"
+                    >
+                      {{ tiktokPrivacyLabel(option) }}
+                    </option>
+                  </select>
+                </label>
+                <div class="tiktok-meta-card">
+                  <span>Creator</span>
+                  <strong>{{ tiktokOptions?.creator?.nickname || selectedTikTokAccount?.display_name || 'TikTok' }}</strong>
+                  <small v-if="tiktokOptions?.creator?.username">@{{ tiktokOptions.creator.username }}</small>
+                  <small v-if="tiktokOptions?.max_video_post_duration_sec">
+                    Max video: {{ tiktokOptions.max_video_post_duration_sec }}s
+                  </small>
+                </div>
+              </div>
+
+              <p v-if="tiktokAccountPrivacyWarning" class="tiktok-helper-copy danger">
+                {{ tiktokAccountPrivacyWarning }}
+              </p>
+              <p v-if="tiktokVideoDurationExceededMessage" class="tiktok-helper-copy danger">
+                {{ tiktokVideoDurationExceededMessage }}
+              </p>
+
+              <div class="tiktok-toggle-grid">
+                <label class="tiktok-toggle" :class="{ disabled: tiktokOptions?.comment_disabled }">
+                  <input v-model="tiktokForm.allow_comment" type="checkbox" :disabled="tiktokOptions?.comment_disabled" />
+                  <span>
+                    <strong>Allow comments</strong>
+                    <small v-if="tiktokOptions?.comment_disabled">Disabled in TikTok creator settings.</small>
+                  </span>
+                </label>
+                <label v-if="tiktokUsesVideo" class="tiktok-toggle" :class="{ disabled: tiktokOptions?.duet_disabled }">
+                  <input v-model="tiktokForm.allow_duet" type="checkbox" :disabled="tiktokOptions?.duet_disabled" />
+                  <span>
+                    <strong>Allow Duet</strong>
+                    <small v-if="tiktokOptions?.duet_disabled">Disabled in TikTok creator settings.</small>
+                  </span>
+                </label>
+                <label v-if="tiktokUsesVideo" class="tiktok-toggle" :class="{ disabled: tiktokOptions?.stitch_disabled }">
+                  <input v-model="tiktokForm.allow_stitch" type="checkbox" :disabled="tiktokOptions?.stitch_disabled" />
+                  <span>
+                    <strong>Allow Stitch</strong>
+                    <small v-if="tiktokOptions?.stitch_disabled">Disabled in TikTok creator settings.</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="tiktok-commercial-block">
+                <label class="tiktok-toggle">
+                  <input v-model="tiktokForm.commercial_content_enabled" type="checkbox" />
+                  <span>
+                    <strong>Commercial content disclosure</strong>
+                    <small>This content promotes yourself, a brand, product, or service.</small>
+                  </span>
+                </label>
+                <div v-if="tiktokForm.commercial_content_enabled" class="tiktok-commercial-options">
+                  <label class="tiktok-toggle">
+                    <input v-model="tiktokForm.brand_organic_toggle" type="checkbox" />
+                    <span>
+                      <strong>Your brand</strong>
+                      <small>You are promoting yourself or your own business.</small>
+                    </span>
+                  </label>
+                  <label class="tiktok-toggle" :class="{ disabled: tiktokSelectedPrivacyIsPrivate }">
+                    <input
+                      v-model="tiktokForm.brand_content_toggle"
+                      type="checkbox"
+                      :disabled="tiktokSelectedPrivacyIsPrivate"
+                    />
+                    <span>
+                      <strong>Branded content</strong>
+                      <small v-if="tiktokSelectedPrivacyIsPrivate">Branded content visibility cannot be private.</small>
+                      <small v-else>You are promoting another brand or a third party.</small>
+                    </span>
+                  </label>
+                  <p v-if="tiktokDisclosureLabel" class="tiktok-helper-copy">
+                    {{ tiktokDisclosureLabel }}
+                  </p>
+                  <p v-if="tiktokBrandedContentPrivateConflict" class="tiktok-helper-copy danger">
+                    TikTok paid partnership content cannot use the Only me privacy setting.
+                  </p>
+                </div>
+              </div>
+
+              <label class="tiktok-consent">
+                <input v-model="tiktokForm.consent_confirmed" type="checkbox" />
+                <span>{{ tiktokConsentLabel }}</span>
+              </label>
+            </template>
+          </div>
+
           <div class="editor-footer">
             <div class="editor-footnote">
               <strong>{{ pageHint() }}</strong>
@@ -2764,6 +2856,10 @@ function pageHint() {
 
 .tiktok-toggle input {
   margin: 2px 0 0;
+}
+
+.tiktok-toggle.disabled {
+  opacity: 0.62;
 }
 
 .tiktok-toggle span {
